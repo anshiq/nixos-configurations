@@ -1,0 +1,8 @@
+
+[manager]
+prepend_keymap = [
+  { on = "e", run = "open --interactive", desc = "Open with editor" },
+  { on = "<C-s>", run = "shell --block --interactive $SHELL", desc = "Shell" },
+  { on = ".", run = "hidden toggle",  desc = "Toggle hidden" },
+  { on = "g", run = "cd --interactive", desc = "Jump (zoxide)" },
+]

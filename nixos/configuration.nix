@@ -29,16 +29,26 @@
     shell = pkgs.fish;
   };
 
-
-  ############################
-  ## Fish Shell
-  ############################
-
-  programs.ssh.startAgent = true;
-  
   ############################
   ## System Packages
   ############################
+  #
+  # NOTE ON MIGRATION: `zellij`, `yazi`, `lazygit`, and `fzf` are
+  # intentionally NOT listed here. They are managed as Home Manager
+  # *programs* in home.nix instead (programs.zellij / programs.yazi /
+  # programs.fzf), which is the more "Nix-idiomatic" path: it installs
+  # the package AND wires up its dotfiles/shell-integration from the
+  # same declarative block, rather than splitting "package present"
+  # (here) from "package configured" (home.nix) across two files.
+  #
+  # `zoxide` was on your old Ubuntu box (referenced in config.fish) but
+  # you've asked to drop it entirely during this migration - it is not
+  # installed anywhere in this config anymore.
+  #
+  # Alacritty was intentionally left out of this migration entirely:
+  # since this NixOS runs under WSL, Alacritty is normally a
+  # Windows-side GUI app rather than something the WSL Linux guest
+  # manages, and you confirmed you don't need it here.
 
   environment.systemPackages = with pkgs; [
     # Shell
