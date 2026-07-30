@@ -1,0 +1,11 @@
+# Ignore everything
+*
+
+# But don't ignore the .gitignore file itself
+!.gitignore
+
+# Don't ignore the folder you want to track
+!nixos/
+
+# Don't ignore files inside it
+!nixos/**

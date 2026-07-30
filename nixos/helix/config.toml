@@ -1,0 +1,93 @@
+theme = "onedark"
+ 
+[editor]
+line-number = "relative"
+mouse = true
+middle-click-paste = true
+scrolloff = 8
+cursorline = true
+# cursorcolumn = false
+auto-completion = true
+# auto-format = true
+auto-save = false
+idle-timeout = 400
+completion-timeout = 250
+preview-completion-insert = true
+completion-trigger-len = 2
+auto-info = true
+true-color = true
+# rulers = [80, 120]
+color-modes = true
+text-width = 100
+ 
+[editor.statusline]
+left = ["mode", "spinner", "file-name", "read-only-indicator", "file-modification-indicator"]
+center = ["version-control"]
+right = ["diagnostics", "selections", "register", "position", "file-encoding"]
+ 
+[editor.lsp]
+display-messages = true
+display-inlay-hints = true
+auto-signature-help = true
+snippets = true
+goto-reference-include-declaration = true
+ 
+[editor.cursor-shape]
+insert = "bar"
+normal = "block"
+select = "underline"
+ 
+[editor.file-picker]
+hidden = false
+git-ignore = true
+git-global = true
+git-exclude = true
+ 
+[editor.auto-pairs]
+'(' = ')'
+'{' = '}'
+'[' = ']'
+'"' = '"'
+"'" = "'"
+'`' = '`'
+'<' = '>'
+ 
+[editor.indent-guides]
+render = true
+character = "│"
+skip-levels = 0
+ 
+# [editor.whitespace]
+# render = "all"
+# characters = { space = "·", nbsp = "⍽", tab = "→", newline = "⏎" }
+ 
+[editor.soft-wrap]
+enable = true
+max-wrap = 25
+max-indent-retain = 0
+wrap-indicator = ""
+ 
+# ============================================================================
+# KEYBINDINGS
+# ============================================================================
+[keys.normal]
+esc = ["collapse_selection", "keep_primary_selection"]
+C-g = [
+    ":write-all",
+    ":new",
+    ":insert-output lazygit",
+    ":buffer-close!",
+    ":redraw",
+    ":reload-all"
+]
+C-y = [
+  ':sh rm -f /tmp/unique-file',
+  ':insert-output yazi "%{buffer_name}" --chooser-file=/tmp/unique-file',
+  ':sh printf "\x1b[?1049h\x1b[?2004h" > /dev/tty',
+  ':open %sh{cat /tmp/unique-file}',
+  ':redraw',
+] 
+[keys.insert]
+C-s = ":w"
+j = { k = "normal_mode" } # jk to exit insert mode
+ 
