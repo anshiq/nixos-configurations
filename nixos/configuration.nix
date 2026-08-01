@@ -15,6 +15,20 @@
   wsl.defaultUser = "nixos";
   wsl.interop.register= true;
   wsl.wslConf.interop.enabled = true;
+  ## run unpatched precompiled binary executables that were not built or packaged specifically for NixOS
+  programs.nix-ld.enable = true;
+
+  programs.nix-ld.libraries = with pkgs; [
+  stdenv.cc.cc
+  stdenv.cc.cc.lib 
+  zlib
+  openssl
+];
+# configuration.nix
+# nix uses NIX_LD_LIBRARY_PATH → used by the patched interpreter for normal binary loading
+# LD_LIBRARY_PATH → used by explicit dlopen() calls at runtime
+#Bun's native addon loader falls into the second bucket, which nix-ld doesn't cover by default.
+environment.variables.LD_LIBRARY_PATH = "${pkgs.stdenv.cc.cc.lib}/lib";
 
   ############################
   ## Fish Shell
@@ -68,6 +82,7 @@
     # Networking
     curl
     wget
+    lsof
 
     # Modern CLI tools
     eza

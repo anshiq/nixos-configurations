@@ -68,6 +68,7 @@
     python3
     python3Packages.pip
     python3Packages.virtualenv
+    uv
 
     ############################
     ## Bun (installed via home.packages; BUN_INSTALL env var set below)
@@ -104,71 +105,84 @@
     "$HOME/.go/bin"
   ];
 
-  programs.fish = {
-    enable = true;
+programs.fish = {
+  enable = true;
 
-    shellAliases = {
-      glog = "git log --oneline --graph --decorate";
-      reload = "source ~/.config/fish/config.fish";
-      zjl = "zellij list-sessions";
-      zja = "zellij attach";
-    };
-
-    functions = {
-      mkcd = {
-        description = "Create a directory and cd into it";
-        body = ''
-          if test (count $argv) -eq 0
-              echo "Usage: mkcd <dir>"
-              return 1
-          end
-          mkdir -p $argv[1]; and cd $argv[1]
-        '';
-      };
-
-      gfile = {
-        description = "Create one or more files along with parent directories";
-        body = ''
-          if test (count $argv) -eq 0
-              echo "Usage: gfile ./path/to/file1.ext ./another/file2.ts ..."
-              return 1
-          end
-          for filepath in $argv
-              set dir (dirname $filepath)
-              mkdir -p $dir
-              if not test -e $filepath
-                  touch $filepath
-                  echo "Created: $filepath"
-              else
-                  echo "Already exists: $filepath"
-              end
-          end
-        '';
-      };
-
-      y = {
-        description = "Open yazi and cd into last directory on exit";
-        body = ''
-          set tmp (mktemp -t "yazi-cwd.XXXXX")
-          yazi $argv --cwd-file="$tmp"
-          if set cwd (command cat -- "$tmp")
-              and test -n "$cwd"
-              and test "$cwd" != "$PWD"
-              builtin cd -- "$cwd"
-          end
-          rm -f -- "$tmp"
-        '';
-      };
-
-      dev = {
-        description = "Launch Zellij with dev layout in current dir";
-        body = ''
-          zellij --layout ${config.xdg.configHome}/zellij/layouts/dev.kdl
-        '';
-      };
-    };
+  shellAliases = {
+    glog = "git log --oneline --graph --decorate";
+    reload = "source ~/.config/fish/config.fish";
+    zjl = "zellij list-sessions";
+    zja = "zellij attach";
   };
 
+  interactiveShellInit = ''
+    if type -q hx
+        set -gx EDITOR hx
+    else if type -q nvim
+        set -gx EDITOR nvim
+    else if type -q vi
+        set -gx EDITOR vi
+    end
+
+    set -gx VISUAL $EDITOR
+  '';
+
+  functions = {
+    mkcd = {
+      description = "Create a directory and cd into it";
+      body = ''
+        if test (count $argv) -eq 0
+            echo "Usage: mkcd <dir>"
+            return 1
+        end
+        mkdir -p $argv[1]; and cd $argv[1]
+      '';
+    };
+
+    gfile = {
+      description = "Create one or more files along with parent directories";
+      body = ''
+        if test (count $argv) -eq 0
+            echo "Usage: gfile ./path/to/file1.ext ./another/file2.ts ..."
+            return 1
+        end
+        for filepath in $argv
+            set dir (dirname $filepath)
+            mkdir -p $dir
+            if not test -e $filepath
+                touch $filepath
+                echo "Created: $filepath"
+            else
+                echo "Already exists: $filepath"
+            end
+        end
+      '';
+    };
+
+    y = {
+      description = "Open yazi and cd into last directory on exit";
+      body = ''
+        set tmp (mktemp -t "yazi-cwd.XXXXX")
+        yazi $argv --cwd-file="$tmp"
+
+        if set cwd (command cat -- "$tmp")
+            and test -n "$cwd"
+            and test "$cwd" != "$PWD"
+            builtin cd -- "$cwd"
+        end
+
+        rm -f -- "$tmp"
+      '';
+    };
+
+    dev = {
+      description = "Launch Zellij with dev layout in current dir";
+      body = ''
+        zellij --layout ${config.xdg.configHome}/zellij/layouts/dev.kdl
+      '';
+    };
+  };
+};
   ############################################################
   ## fzf - fuzzy finder (kept; zoxide was dropped, fzf was not)
   ############################################################
