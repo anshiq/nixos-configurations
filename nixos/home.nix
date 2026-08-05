@@ -24,7 +24,7 @@
     python3Packages.python-lsp-server
     python3Packages.flake8
     bash-language-server
-    jdt-language-server
+    kotlin-language-server
 
     # Formatters
     prettier
@@ -96,6 +96,13 @@
   home.sessionVariables = {
     BUN_INSTALL = "$HOME/.bun";
     GOPATH = "$HOME/.go";
+    GOROOT = "${pkgs.go}/share/go";
+
+    JAVA_HOME = "${pkgs.jdk21}/lib/openjdk";
+
+  # Rust doesn't need CARGO_HOME/RUSTUP_HOME unless you use rustup
+  # (you're using pkgs.rustc/cargo directly, so this is optional)
+    CARGO_HOME = "$HOME/.cargo";
   };
 
   home.sessionPath = [
