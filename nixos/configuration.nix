@@ -15,20 +15,79 @@
   wsl.defaultUser = "nixos";
   wsl.interop.register= true;
   wsl.wslConf.interop.enabled = true;
-  ## run unpatched precompiled binary executables that were not built or packaged specifically for NixOS
-  programs.nix-ld.enable = true;
+  # run unpatched precompiled binary executables that were not built or packaged specifically for NixOS
+   programs.nix-ld.enable = true;
 
+ 
   programs.nix-ld.libraries = with pkgs; [
-  stdenv.cc.cc
-  stdenv.cc.cc.lib 
+  # core runtime
+  stdenv.cc.cc.lib
   zlib
+  zstd
+  bzip2
+  xz
   openssl
+  curl
+  libxml2
+  icu
+
+  cups
+  dbus
+  expat
+  nspr
+  nss
+  cairo
+  pango
+  gtk3
+  gdk-pixbuf
+  harfbuzz
+
+  # python native extensions
+  libffi
+  ncurses
+
+  # browser / GUI (glib already covers a lot, these round it out)
+  glib
+  nss
+  nspr
+  dbus
+  fontconfig
+  freetype
+  alsa-lib
+  atk
+
+   # Graphics
+  mesa
+  libdrm
+  libgbm
+
+  # X11
+  libX11
+  libXcomposite
+  libXcursor
+  libXdamage
+  libXext
+  libXfixes
+  libXi
+  libXrandr
+  libXrender
+  libXtst
+  libxcb
+  libXinerama
+  libxkbcommon
+
+  # Audio
+  alsa-lib
+
+  # Misc
+  udev
 ];
 # configuration.nix
 # nix uses NIX_LD_LIBRARY_PATH → used by the patched interpreter for normal binary loading
 # LD_LIBRARY_PATH → used by explicit dlopen() calls at runtime
 #Bun's native addon loader falls into the second bucket, which nix-ld doesn't cover by default.
-environment.variables.LD_LIBRARY_PATH = "${pkgs.stdenv.cc.cc.lib}/lib";
+#
+environment.variables.LD_LIBRARY_PATH =  lib.makeLibraryPath config.programs.nix-ld.libraries;
 
   ############################
   ## Fish Shell

@@ -99,6 +99,7 @@
     GOROOT = "${pkgs.go}/share/go";
 
     JAVA_HOME = "${pkgs.jdk21}/lib/openjdk";
+    NPM_CONFIG_PREFIX = "$HOME/.npm-global";
 
   # Rust doesn't need CARGO_HOME/RUSTUP_HOME unless you use rustup
   # (you're using pkgs.rustc/cargo directly, so this is optional)
@@ -255,6 +256,7 @@ programs.fish = {
     # Verbatim keybinds block from your original config.kdl, preserved
     # exactly (including `clear-defaults=true`) since this is raw KDL
     # syntax rather than something the `settings` attrset models 1:1.
+            #  bind "Ctrl x" { CloseFocus; } # shit shortcout
     extraConfig = ''
       keybinds clear-defaults=true {
           normal {
@@ -271,7 +273,6 @@ programs.fish = {
               bind "Ctrl p" { SwitchToMode "pane"; }
               bind "Ctrl s" { SwitchToMode "scroll"; }
               bind "Ctrl t" { SwitchToMode "tab"; }
-              bind "Ctrl x" { CloseFocus; }
           }
           locked {
               bind "Ctrl g" { SwitchToMode "normal"; }
