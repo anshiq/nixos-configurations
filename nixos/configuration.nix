@@ -181,7 +181,12 @@ environment.variables.LD_LIBRARY_PATH =  lib.makeLibraryPath config.programs.nix
   ## Starship Prompt
   ############################
 
-  programs.starship.enable = true;
+  programs.starship = {
+  enable = true;
+  settings = {
+    scan_timeout = 1000;
+    };
+  };
 
   ############################
   ## Nix Settings
