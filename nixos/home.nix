@@ -74,6 +74,9 @@
     ## Bun (installed via home.packages; BUN_INSTALL env var set below)
     ############################
     bun
+
+    ## DB's
+    pgcli
   ];
 
   xdg.configFile."helix/config.toml".source = ./helix/config.toml;
@@ -96,7 +99,8 @@
   home.sessionVariables = {
     BUN_INSTALL = "$HOME/.bun";
     GOPATH = "$HOME/.go";
-    GOROOT = "${pkgs.go}/share/go";
+    # GOROOT = "${pkgs.go}/share/go";
+    GOTOOLCHAIN= "auto";
 
     JAVA_HOME = "${pkgs.jdk21}/lib/openjdk";
     NPM_CONFIG_PREFIX = "$HOME/.npm-global";
