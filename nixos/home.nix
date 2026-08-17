@@ -220,7 +220,7 @@ programs.fish = {
   # `settings` option, which is the idiomatic, type-checked path.
   programs.zellij = {
     enable = true;
-    enableFishIntegration = false; # you launch zellij manually / via `dev`, not on every shell start
+    enableFishIntegration = true; # you launch zellij manually / via `dev`, not on every shell start
 
     settings = {
       theme = "catppuccin-mocha";
@@ -314,6 +314,19 @@ programs.fish = {
           search {
               bind "N" { Search "up"; }
               bind "n" { Search "down"; }
+          }
+          session {
+               bind "Ctrl o" { SwitchToMode "normal"; }
+               bind "d" { Detach; }
+               bind "w" { LaunchOrFocusPlugin "session-manager" { floating true; }; SwitchToMode "normal"; }
+               bind "c" { LaunchOrFocusPlugin "configuration" { floating true; }; SwitchToMode "normal"; }
+          }
+          entersearch {
+               bind "Ctrl c" "Esc" { SwitchToMode "scroll"; }
+               bind "Enter" { SwitchToMode "search"; }
+          }
+          shared_except "normal" "locked" {
+               bind "Esc" "Enter" { SwitchToMode "normal"; }
           }
       }
     '';
