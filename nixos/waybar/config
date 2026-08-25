@@ -1,0 +1,85 @@
+[
+  {
+    "battery": {
+      "format": "{icon} {capacity}%",
+      "format-charging": "󰂄 {capacity}%",
+      "format-icons": [
+        "󰁺",
+        "󰁻",
+        "󰁽",
+        "󰁿",
+        "󰂁",
+        "󰁹"
+      ],
+      "states": {
+        "critical": 15,
+        "warning": 30
+      }
+    },
+    "clock": {
+      "format": "  {:%a %d %b  %H:%M}",
+      "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>"
+    },
+    "cpu": {
+      "format": "  {usage}%",
+      "interval": 5
+    },
+    "height": 30,
+    "hyprland/window": {
+      "max-length": 60,
+      "separate-outputs": true
+    },
+    "hyprland/workspaces": {
+      "all-outputs": true,
+      "disable-scroll": true,
+      "format": "{icon}",
+      "format-icons": {
+        "active": "",
+        "default": "",
+        "urgent": ""
+      }
+    },
+    "layer": "top",
+    "memory": {
+      "format": "  {}%"
+    },
+    "modules-center": [
+      "clock"
+    ],
+    "modules-left": [
+      "hyprland/workspaces",
+      "hyprland/window"
+    ],
+    "modules-right": [
+      "tray",
+      "network",
+      "pulseaudio",
+      "cpu",
+      "memory",
+      "battery"
+    ],
+    "network": {
+      "format-disconnected": "󰖪  offline",
+      "format-ethernet": "󰈀  {ifname}",
+      "format-wifi": "  {essid}",
+      "tooltip-format": "{ifname}: {ipaddr}"
+    },
+    "position": "top",
+    "pulseaudio": {
+      "format": "{icon} {volume}%",
+      "format-icons": {
+        "default": [
+          "",
+          "",
+          ""
+        ]
+      },
+      "format-muted": "󰝟 muted",
+      "on-click": "pamixer --toggle-mute"
+    },
+    "spacing": 8,
+    "tray": {
+      "spacing": 8
+    }
+  }
+]
