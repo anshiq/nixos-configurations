@@ -9,3 +9,4 @@
 
 # Don't ignore files inside it
 !nixos/**
+hardware-configuration.nix
