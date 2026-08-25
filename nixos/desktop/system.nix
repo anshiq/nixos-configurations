@@ -1,5 +1,7 @@
 { pkgs, ... }:
 
+hardware.graphics.enable = true;
+
 {
   # Native graphical stack. This is intentionally Hyprland-only, not a full
   # GNOME/KDE desktop environment.

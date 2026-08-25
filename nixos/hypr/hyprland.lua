@@ -20,6 +20,9 @@ hl.monitor({
   position = "auto",
   scale    = "auto",
 })
+render {
+  explicit_sync = 0  -- zed was not opening 
+}
 
 --------------------------
 ---- ENVIRONMENT VARS ----

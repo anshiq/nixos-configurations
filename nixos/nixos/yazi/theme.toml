@@ -1,6 +1,0 @@
-[manager]
-cwd = { fg = "cyan" }
-
-[status]
-separator_open  = ""
-separator_close = ""
