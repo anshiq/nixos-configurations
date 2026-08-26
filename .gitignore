@@ -9,4 +9,4 @@
 
 # Don't ignore files inside it
 !nixos/**
-hardware-configuration.nix
+# hardware-configuration.nix # nix also uses git for it snapshots
