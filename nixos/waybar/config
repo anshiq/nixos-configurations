@@ -24,7 +24,7 @@
       "format": "  {usage}%",
       "interval": 5
     },
-    "height": 30,
+    "height": 26,
     "hyprland/window": {
       "max-length": 60,
       "separate-outputs": true
@@ -55,6 +55,13 @@
       "on-click": "$HOME/.config/waybar/scripts/power-menu.sh",
       "tooltip": false
     },
+    "custom/bluelight": {
+      "exec": "$HOME/.config/waybar/scripts/bluelight-status.sh",
+      "on-click": "$HOME/.config/waybar/scripts/bluelight-toggle.sh",
+      "return-type": "json",
+      "signal": 8,
+      "tooltip": true
+    },
     "modules-right": [
       "tray",
       "network",
@@ -62,6 +69,7 @@
       "cpu",
       "memory",
       "battery",
+      "custom/bluelight",
       "custom/power"
     ],
     "network": {
@@ -83,9 +91,9 @@
       "format-muted": "󰝟 muted",
       "on-click": "pamixer --toggle-mute"
     },
-    "spacing": 8,
+    "spacing": 4,
     "tray": {
-      "spacing": 8
+      "spacing": 4
     }
   }
 ]

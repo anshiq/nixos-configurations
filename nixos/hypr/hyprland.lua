@@ -39,6 +39,7 @@ hl.env("HYPRCURSOR_SIZE", "24")
 ----------------
 
 hl.on("hyprland.start", function()
+  hl.exec_cmd("$HOME/.config/waybar/scripts/theme-switch.sh")
   hl.exec_cmd("waybar")
   -- hl.exec_cmd("mako")
   -- hl.exec_cmd("nm-applet --indicator")

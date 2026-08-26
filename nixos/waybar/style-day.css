@@ -11,17 +11,20 @@ window#waybar {
   border-bottom: 2px solid #414868;
 }
 #workspaces button {
-  padding: 0 7px;
+  padding: 0 5px;
   color: #414868;
   background: transparent;
 }
 #workspaces button.active { color: #7aa2f7; }
 #workspaces button.urgent { color: #f7768e; }
-#window, #clock, #tray, #network, #pulseaudio, #cpu, #memory, #battery, #custom-power {
-  padding: 0 9px;
+#window, #clock, #tray, #network, #pulseaudio, #cpu, #memory, #battery, #custom-power, #custom-bluelight {
+  padding: 0 6px;
 }
 #custom-power { color: #f7768e; }
 #custom-power:hover { background: #292e42; color: #ff9e64; }
+#custom-bluelight.active { color: #e0af68; }
+#custom-bluelight.inactive { color: #414868; }
+#custom-bluelight:hover { background: #292e42; }
 #clock { color: #7aa2f7; font-weight: bold; }
 #network { color: #7dcfff; }
 #pulseaudio { color: #9ece6a; }

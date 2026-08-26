@@ -36,6 +36,7 @@ in
     hypridle
     hyprlock
     hyprpicker
+    hyprsunset
     libnotify
     pamixer
     playerctl
@@ -76,9 +77,26 @@ in
     "hypr/hyprland.lua".source = ../hypr/hyprland.lua;
     "ghostty/config".source = ../ghostty/config;
     "waybar/config".source = ../waybar/config;
-    "waybar/style.css".source = ../waybar/style.css;
+    # style.css itself is NOT managed here: it's a runtime symlink flipped
+    # between the two themes below by theme-switch.sh, so home-manager
+    # activation doesn't fight the day/night switcher while the session
+    # is running.
+    "waybar/style-day.css".source = ../waybar/style-day.css;
+    "waybar/style-night.css".source = ../waybar/style-night.css;
     "waybar/scripts/power-menu.sh" = {
       source = ../waybar/scripts/power-menu.sh;
+      executable = true;
+    };
+    "waybar/scripts/theme-switch.sh" = {
+      source = ../waybar/scripts/theme-switch.sh;
+      executable = true;
+    };
+    "waybar/scripts/bluelight-toggle.sh" = {
+      source = ../waybar/scripts/bluelight-toggle.sh;
+      executable = true;
+    };
+    "waybar/scripts/bluelight-status.sh" = {
+      source = ../waybar/scripts/bluelight-status.sh;
       executable = true;
     };
     "wofi/config".source = ../wofi/config;
@@ -192,4 +210,27 @@ in
 
   # Let GUI applications find SSH/GPG credentials through the session keyring.
   services.gnome-keyring.enable = true;
+
+  # Day theme 09:00-17:00, sunset/night theme the rest of the time. Also run
+  # once at login (see hypr/hyprland.lua autostart) so waybar starts on the
+  # right theme without waiting for the first timer tick.
+  systemd.user.services.waybar-theme-switch = {
+    Unit.Description = "Switch waybar between day and sunset themes";
+    Service = {
+      Type = "oneshot";
+      ExecStart = "%h/.config/waybar/scripts/theme-switch.sh";
+    };
+  };
+
+  systemd.user.timers.waybar-theme-switch = {
+    Unit.Description = "Trigger the waybar day/sunset theme switch at 09:00 and 17:00";
+    Timer = {
+      OnCalendar = [
+        "*-*-* 09:00:00"
+        "*-*-* 17:00:00"
+      ];
+      Persistent = true;
+    };
+    Install.WantedBy = [ "timers.target" ];
+  };
 }
