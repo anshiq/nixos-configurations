@@ -193,6 +193,10 @@ in
       source = ../waybar/scripts/bluelight-adjust.sh;
       executable = true;
     };
+    "waybar/scripts/theme-status.sh" = {
+      source = ../waybar/scripts/theme-status.sh;
+      executable = true;
+    };
     "wofi/config".source = ../wofi/config;
   };
 

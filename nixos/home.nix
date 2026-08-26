@@ -138,6 +138,7 @@
       reload = "source ~/.config/fish/config.fish";
       zjl = "zellij list-sessions";
       zja = "zellij attach";
+      theme-status = "$HOME/.config/waybar/scripts/theme-status.sh";
     };
 
     interactiveShellInit = ''
@@ -216,7 +217,21 @@
           if test $hour -ge 6; and test $hour -lt 17
               set theme tokyo-night
           end
-          command zellij --theme $theme $argv
+
+          # zellij 0.44 has no top-level --theme flag; overriding it means
+          # appending the `options` subcommand, which only applies when
+          # starting a brand-new session - it can't be chained after
+          # attach/list-sessions/etc, so those pass through untouched.
+          if test (count $argv) -eq 0
+              command zellij options --theme $theme
+          else
+              switch $argv[1]
+                  case '-*'
+                      command zellij $argv options --theme $theme
+                  case '*'
+                      command zellij $argv
+              end
+          end
         '';
       };
     };
