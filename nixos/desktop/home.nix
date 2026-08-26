@@ -30,6 +30,7 @@ let
 in
 {
   home.packages = with pkgs; [
+    bibata-cursors
     brightnessctl
     cliphist
     grim
@@ -201,6 +202,11 @@ in
     iconTheme = {
       name = "Papirus-Dark";
       package = pkgs.papirus-icon-theme;
+    };
+    cursorTheme = {
+      name = "Bibata-Modern-Ice";
+      package = pkgs.bibata-cursors;
+      size = 24;
     };
     font = {
       name = "Noto Sans";

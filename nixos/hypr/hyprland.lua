@@ -33,6 +33,8 @@ hl.monitor({
 
 hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_SIZE", "24")
+hl.env("XCURSOR_THEME", "Bibata-Modern-Ice")
+hl.env("HYPRCURSOR_THEME", "Bibata-Modern-Ice")
 
 ----------------
 ---- AUTOSTART ----
@@ -60,10 +62,10 @@ hl.config({
       active_border   = { colors = { "rgba(7aa2f7ee)", "rgba(bb9af7ee)" }, angle = 45 },
       inactive_border = "rgba(414868aa)",
     },
-    gaps_in          = 5,
-    gaps_out         = 10,
+    gaps_in          = 2,
+    gaps_out         = 4,
     layout           = "dwindle",
-    resize_on_border = false,
+    resize_on_border = true,
   },
 
   decoration = {
@@ -196,9 +198,18 @@ hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("pamixer --decrease 5"), { locke
 hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("brightnessctl set +5%"), { locked = true, repeating = true })
 hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("brightnessctl set 5%-"), { locked = true, repeating = true })
 
--- Mouse binds
+-- Mouse binds (drag to move/resize the focused window from anywhere on it,
+-- and resize_on_border above also lets you grab a window's edge directly)
 hl.bind(mod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
 hl.bind(mod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
+
+-- Keyboard resize (mod+ALT+hjkl is unused elsewhere - mod+ALT is only
+-- otherwise bound to F/S/B). Hold to keep resizing.
+local resizeStep = 20
+hl.bind(mod .. " + ALT + H", hl.dsp.window.resize({ x = -resizeStep, y = 0, relative = true }), { repeating = true })
+hl.bind(mod .. " + ALT + L", hl.dsp.window.resize({ x = resizeStep, y = 0, relative = true }), { repeating = true })
+hl.bind(mod .. " + ALT + K", hl.dsp.window.resize({ x = 0, y = -resizeStep, relative = true }), { repeating = true })
+hl.bind(mod .. " + ALT + J", hl.dsp.window.resize({ x = 0, y = resizeStep, relative = true }), { repeating = true })
 
 --------------------
 ---- WINDOW RULES ----

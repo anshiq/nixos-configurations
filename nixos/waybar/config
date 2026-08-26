@@ -24,7 +24,7 @@
       "format": "  {usage}%",
       "interval": 5
     },
-    "height": 26,
+    "height": 22,
     "hyprland/window": {
       "max-length": 60,
       "separate-outputs": true
@@ -91,9 +91,9 @@
       "format-muted": "󰝟 muted",
       "on-click": "pamixer --toggle-mute"
     },
-    "spacing": 4,
+    "spacing": 2,
     "tray": {
-      "spacing": 4
+      "spacing": 2
     }
   }
 ]
