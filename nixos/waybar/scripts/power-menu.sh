@@ -11,7 +11,11 @@ case "$choice" in
     pidof hyprlock || hyprlock
     ;;
   Logout)
-    hyprctl dispatch exit
+    # The session is UWSM-managed (see desktop/system.nix, withUWSM = true),
+    # so it must be torn down via `uwsm stop` rather than `hyprctl dispatch
+    # exit` - otherwise the UWSM-generated units don't unwind cleanly and
+    # control never gets handed back to SDDM's login screen.
+    uwsm stop
     ;;
   Suspend)
     systemctl suspend
