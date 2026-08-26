@@ -77,6 +77,10 @@ in
     "ghostty/config".source = ../ghostty/config;
     "waybar/config".source = ../waybar/config;
     "waybar/style.css".source = ../waybar/style.css;
+    "waybar/scripts/power-menu.sh" = {
+      source = ../waybar/scripts/power-menu.sh;
+      executable = true;
+    };
     "wofi/config".source = ../wofi/config;
     "wofi/style.css".source = ../wofi/style.css;
     "mako/config".source = ../mako/config;

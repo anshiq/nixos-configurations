@@ -50,13 +50,19 @@
       "hyprland/workspaces",
       "hyprland/window"
     ],
+    "custom/power": {
+      "format": "⏻",
+      "on-click": "$HOME/.config/waybar/scripts/power-menu.sh",
+      "tooltip": false
+    },
     "modules-right": [
       "tray",
       "network",
       "pulseaudio",
       "cpu",
       "memory",
-      "battery"
+      "battery",
+      "custom/power"
     ],
     "network": {
       "format-disconnected": "󰖪  offline",
