@@ -94,6 +94,14 @@ nixpkgs.config.allowUnfree = true;
     libXinerama
     libxkbcommon
 
+    #gui zed
+    wayland
+  libxkbcommon
+  vulkan-loader
+  libGL
+  fontconfig
+  freetype
+
     # Audio
     alsa-lib
 
@@ -123,6 +131,7 @@ nixpkgs.config.allowUnfree = true;
     ];
     shell = pkgs.fish;
 initialPassword = "a";
+
   };
 security.sudo.enable = true;
 
@@ -185,7 +194,13 @@ security.sudo.enable = true;
     which
     file
     gnupg
+
+    #keyboard
+    xkeyboard-config 
   ];
+
+  
+environment.sessionVariables.XKB_CONFIG_ROOT = "${pkgs.xkeyboard-config}/share/X11/xkb";
 
   ############################
   ## Git
