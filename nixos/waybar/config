@@ -58,6 +58,8 @@
     "custom/bluelight": {
       "exec": "$HOME/.config/waybar/scripts/bluelight-status.sh",
       "on-click": "$HOME/.config/waybar/scripts/bluelight-toggle.sh",
+      "on-scroll-up": "$HOME/.config/waybar/scripts/bluelight-adjust.sh 1",
+      "on-scroll-down": "$HOME/.config/waybar/scripts/bluelight-adjust.sh -1",
       "return-type": "json",
       "signal": 8,
       "tooltip": true

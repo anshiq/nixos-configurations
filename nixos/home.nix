@@ -207,6 +207,18 @@
           zellij --layout ${config.xdg.configHome}/zellij/layouts/dev.kdl
         '';
       };
+
+      zellij = {
+        description = "Wraps the real zellij to pick day/sunset theme by time of day";
+        body = ''
+          set -l hour (date +%-H)
+          set -l theme sunset-night
+          if test $hour -ge 6; and test $hour -lt 17
+              set theme tokyo-night
+          end
+          command zellij --theme $theme $argv
+        '';
+      };
     };
   };
   ############################################################
@@ -279,6 +291,25 @@
         magenta = "#bb9af7";
         cyan = "#7dcfff";
         white = "#c0caf5";
+        orange = "#ff9e64";
+      };
+
+      # Warm counterpart used 17:00-06:00 - same palette family as the
+      # waybar/ghostty/kitty/wofi/mako/hyprlock night themes. Both themes
+      # live in the same config.kdl (zellij has no live theme reload), and
+      # the `zellij` fish function below picks which one to launch with via
+      # `--theme`, based on time of day.
+      themes.sunset-night = {
+        fg = "#e0c2a8";
+        bg = "#1e1512";
+        black = "#4a3728";
+        red = "#f7768e";
+        green = "#b9ca6a";
+        yellow = "#e0af68";
+        blue = "#e8935c";
+        magenta = "#dba463";
+        cyan = "#ffb37a";
+        white = "#f5e3d0";
         orange = "#ff9e64";
       };
 
