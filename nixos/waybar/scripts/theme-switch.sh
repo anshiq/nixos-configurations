@@ -3,11 +3,16 @@
 # sunset/night theme (everything else): waybar, ghostty, kitty, wofi, mako,
 # and hyprlock each get their active config symlink repointed, then get
 # nudged to reload; Hyprland's own border colors are updated live via
-# `hyprctl eval` (no config file/reload involved for those). Note: this
-# config is Lua-based (hyprland.lua), and Hyprland 0.56 refuses `hyprctl
-# keyword` entirely for non-legacy (Lua) parsers ("keyword can't work with
-# non-legacy parsers. Use eval.") - `eval` runs a Lua snippet against the
-# live config instead, so the override has to go through hl.config(...).
+# `hyprctl eval` (no config file/reload involved for those); hyprsunset
+# (the blue-light filter) is auto-started going into night and auto-stopped
+# going into day, at whatever warmth was last saved via the topbar scroll
+# control (see bluelight-*.sh) - it can still be toggled manually via the
+# topbar in between switches, but the next switch re-asserts the
+# mode-appropriate on/off state. Note: this config is Lua-based
+# (hyprland.lua), and Hyprland 0.56 refuses `hyprctl keyword` entirely for
+# non-legacy (Lua) parsers ("keyword can't work with non-legacy parsers.
+# Use eval.") - `eval` runs a Lua snippet against the live config instead,
+# so the border override has to go through hl.config(...).
 set -euo pipefail
 
 hour=$(date +%-H)
@@ -48,3 +53,16 @@ else
   inactive_border="rgba(4a3728aa)"
 fi
 hyprctl eval "hl.config({ general = { col = { active_border = { colors = { $active_border_colors }, angle = 45 }, inactive_border = \"$inactive_border\" } } })" >/dev/null 2>&1 || true
+
+bluelight_state="$HOME/.cache/waybar-bluelight-temp"
+bluelight_default_temp=4000
+mkdir -p "$(dirname "$bluelight_state")"
+[ -f "$bluelight_state" ] || echo "$bluelight_default_temp" > "$bluelight_state"
+bluelight_temp=$(cat "$bluelight_state")
+
+if [ "$mode" = "night" ]; then
+  pgrep -x hyprsunset >/dev/null || setsid -f hyprsunset -t "$bluelight_temp" >/dev/null 2>&1
+else
+  { pgrep -x hyprsunset >/dev/null && pkill -x hyprsunset; } || true
+fi
+pkill -RTMIN+8 -x waybar 2>/dev/null || true
