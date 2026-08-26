@@ -42,10 +42,12 @@ hl.env("HYPRCURSOR_THEME", "Bibata-Modern-Ice")
 
 hl.on("hyprland.start", function()
   hl.exec_cmd("$HOME/.config/waybar/scripts/theme-switch.sh")
+  -- Same image hyprlock and the SDDM greeter use - see desktop/home.nix and
+  -- desktop/system.nix.
+  hl.exec_cmd("swaybg -i $HOME/.config/wallpapers/wallpaper.png -m fill")
   hl.exec_cmd("waybar")
   -- hl.exec_cmd("mako")
   -- hl.exec_cmd("nm-applet --indicator")
-  -- hl.exec_cmd("swaybg -i <wallpaper> -m fill")
   -- hl.exec_cmd("wl-paste --type text --watch cliphist store")
   -- hl.exec_cmd("wl-paste --type image --watch cliphist store")
 end)

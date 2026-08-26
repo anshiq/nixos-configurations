@@ -35,7 +35,10 @@ let
     accent = "ffb37a";
   };
 
-  wallpaper = ./wallpapers/tokyo-night.webp;
+  # Checked into version control (nixos/desktop/wallpapers/) - the same file
+  # is used for the desktop background (swaybg), hyprlock, and the SDDM
+  # greeter theme (see desktop/system.nix), so all three always match.
+  wallpaper = ./wallpapers/shortcuts-latest.png;
   terminal = "ghostty";
   browser = "google-chrome-stable";
   lock = "pidof hyprlock || hyprlock";
@@ -197,6 +200,9 @@ in
       source = ../waybar/scripts/theme-status.sh;
       executable = true;
     };
+    # Deployed to a stable path so hyprland.lua (verbatim, untemplated) can
+    # point swaybg at it without a Nix store path baked into the Lua file.
+    "wallpapers/wallpaper.png".source = wallpaper;
     "wofi/config".source = ../wofi/config;
   };
 
