@@ -7,7 +7,7 @@ This flake migrates the previous WSL development setup to native NixOS without i
 - Hyprland launched through UWSM, with SDDM login
 - Ghostty with JetBrainsMono Nerd Font and Tokyo Night colors
 - Waybar, Wofi, Mako, Hyprlock, and Hypridle
-- Chromium as the default browser
+- Google Chrome as the default browser, with Firefox as a secondary browser
 - NetworkManager, Bluetooth, PipeWire, portals, Polkit, and keyring support
 - Tokyo Night wallpaper and matching UI colors
 - Screenshot, clipboard history, media, volume, brightness, lock, workspace, and window bindings
@@ -93,7 +93,8 @@ Hyprland uses `Super`, leaving the existing Zellij `Ctrl` bindings unchanged. Gh
 | Binding | Action |
 |---|---|
 | `Super+Enter` | Ghostty |
-| `Super+Shift+Enter` / `Super+Shift+B` | Chromium |
+| `Super+Shift+Enter` / `Super+Shift+B` | Google Chrome |
+| `Super+Alt+B` | Firefox |
 | `Super+Space` | Application launcher |
 | `Super+Q` / `Super+W` | Close window |
 | `Super+Arrow` | Move focus |

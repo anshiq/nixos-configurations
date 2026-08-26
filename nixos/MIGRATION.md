@@ -13,7 +13,7 @@
 - Zellij's colors now use the Omarchy Tokyo Night palette.
 - Ghostty replaces the previous Windows-side/Alacritty assumption.
 - Hyprland is the native compositor, backed by UWSM and SDDM.
-- Chromium is installed and registered for HTTP/HTTPS.
+- Google Chrome is installed and registered for HTTP/HTTPS; Firefox is installed as a secondary browser.
 - JetBrainsMono Nerd Font supplies terminal and Waybar glyphs; Noto fonts and Noto Color Emoji provide broad fallback coverage.
 - Native NetworkManager, Bluetooth, PipeWire, portals, Polkit, and keyring services replace WSL/Windows integration.
 

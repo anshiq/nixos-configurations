@@ -6,7 +6,8 @@
 -------------------
 
 local terminal = "ghostty"
-local browser  = "chromium"
+local browser  = "google-chrome-stable"
+local browser2 = "firefox"
 local menu     = "wofi --show drun --allow-images"
 local mod      = "SUPER"
 
@@ -136,6 +137,7 @@ hl.gesture({
 hl.bind(mod .. " + RETURN", hl.dsp.exec_cmd(terminal))
 hl.bind(mod .. " + SHIFT + RETURN", hl.dsp.exec_cmd(browser))
 hl.bind(mod .. " + SHIFT + B", hl.dsp.exec_cmd(browser))
+hl.bind(mod .. " + ALT + B", hl.dsp.exec_cmd(browser2))
 hl.bind(mod .. " + SPACE", hl.dsp.exec_cmd(menu))
 
 -- Windows
@@ -217,7 +219,7 @@ hl.window_rule({
 })
 
 hl.window_rule({
-  name  = "chromium-tiled",
-  match = { class = "^(chromium|google-chrome)$" },
+  name  = "browser-tiled",
+  match = { class = "^(google-chrome|Google-chrome|firefox)$" },
   tile  = true,
 })

@@ -25,7 +25,7 @@ let
 
   wallpaper = ./wallpapers/tokyo-night.webp;
   terminal = "ghostty";
-  browser = "chromium";
+  browser = "google-chrome-stable";
   lock = "pidof hyprlock || hyprlock";
 in
 {
@@ -168,9 +168,9 @@ in
   xdg.mimeApps = {
     enable = true;
     defaultApplications = {
-      "text/html" = "chromium-browser.desktop";
-      "x-scheme-handler/http" = "chromium-browser.desktop";
-      "x-scheme-handler/https" = "chromium-browser.desktop";
+      "text/html" = "google-chrome.desktop";
+      "x-scheme-handler/http" = "google-chrome.desktop";
+      "x-scheme-handler/https" = "google-chrome.desktop";
     };
   };
 

@@ -61,7 +61,8 @@ programs.xfconf.enable = true;
   };
 
   environment.systemPackages = with pkgs; [
-    chromium
+    google-chrome
+    firefox
     ghostty
     kitty
     networkmanagerapplet
