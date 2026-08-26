@@ -20,9 +20,11 @@ hl.monitor({
   position = "auto",
   scale    = "auto",
 })
-render {
-  explicit_sync = 0  -- zed was not opening 
-}
+
+-- NOTE: render { explicit_sync = 0 } (old zed workaround) is GONE in 0.50+:
+-- explicit sync is now always enabled by default in Hyprland, so the option
+-- was removed upstream and has no Lua equivalent in 0.56.x.
+-- If zed still fails to open, that's unrelated to explicit sync.
 
 --------------------------
 ---- ENVIRONMENT VARS ----
