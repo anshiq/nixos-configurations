@@ -9,6 +9,15 @@
     withUWSM = true;
     xwayland.enable = true;
   };
+  programs.thunar.enable = true;
+  programs.thunar.plugins = with pkgs.xfce; [
+  thunar-archive-plugin
+  thunar-volman
+];
+
+services.gvfs.enable = true; # Mount, trash, and other functionalities
+services.tumbler.enable = true;
+programs.xfconf.enable = true;
 
   services.displayManager.sddm = {
     enable = true;
@@ -56,5 +65,7 @@
     ghostty
     kitty
     networkmanagerapplet
+    vscode
+    teams-for-linux
   ];
 }

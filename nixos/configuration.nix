@@ -21,6 +21,7 @@
 
 boot.loader.systemd-boot.enable = true;
 boot.loader.efi.canTouchEfiVariables = true;
+nixpkgs.config.allowUnfree = true;
 
   # WSL settings are intentionally retained only as migration documentation.
   # wsl.enable = true;
