@@ -134,6 +134,18 @@
   security.sudo.enable = true;
 
   ############################
+  ## Docker (rootless)
+  ############################
+  # Runs the docker daemon as the invoking user rather than root. The client
+  # still needs `docker` on PATH, which comes from
+  # virtualisation.docker.rootless's own package injection, but we also add
+  # `docker-compose` explicitly below via systemPackages.
+  virtualisation.docker.rootless = {
+    enable = true;
+    setSocketVariable = true;
+  };
+
+  ############################
   ## System Packages
   ############################
   #
@@ -196,6 +208,10 @@
     #keyboard
     xkeyboard-config
     xclip
+
+    # Docker (rootless daemon enabled above; compose plugin isn't pulled in
+    # automatically by virtualisation.docker.rootless)
+    docker-compose
   ];
 
   environment.sessionVariables.XKB_CONFIG_ROOT = "${pkgs.xkeyboard-config}/share/X11/xkb";
