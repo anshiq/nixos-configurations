@@ -55,6 +55,18 @@
       "on-click": "$HOME/.config/waybar/scripts/power-menu.sh",
       "tooltip": false
     },
+    "custom/screenshot": {
+      "format": "󰄀",
+      "on-click": "$HOME/.config/waybar/scripts/screenshot.sh",
+      "tooltip-format": "Screenshot (drag the result into any app)"
+    },
+    "custom/record": {
+      "exec": "$HOME/.config/waybar/scripts/record-status.sh",
+      "on-click": "$HOME/.config/waybar/scripts/record-toggle.sh",
+      "return-type": "json",
+      "signal": 9,
+      "tooltip": true
+    },
     "custom/bluelight": {
       "exec": "$HOME/.config/waybar/scripts/bluelight-status.sh",
       "on-click": "$HOME/.config/waybar/scripts/bluelight-toggle.sh",
@@ -71,6 +83,8 @@
       "cpu",
       "memory",
       "battery",
+      "custom/screenshot",
+      "custom/record",
       "custom/bluelight",
       "custom/power"
     ],

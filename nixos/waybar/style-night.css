@@ -17,7 +17,7 @@ window#waybar {
 }
 #workspaces button.active { color: #ff9e64; }
 #workspaces button.urgent { color: #f7768e; }
-#window, #clock, #tray, #network, #pulseaudio, #cpu, #memory, #battery, #custom-power, #custom-bluelight {
+#window, #clock, #tray, #network, #pulseaudio, #cpu, #memory, #battery, #custom-power, #custom-bluelight, #custom-screenshot, #custom-record {
   padding: 0 3px;
 }
 #custom-power { color: #f7768e; }
@@ -25,6 +25,11 @@ window#waybar {
 #custom-bluelight.active { color: #ffb37a; }
 #custom-bluelight.inactive { color: #6b4f3a; }
 #custom-bluelight:hover { background: #33241c; }
+#custom-screenshot { color: #e0af68; }
+#custom-screenshot:hover { background: #33241c; }
+#custom-record.inactive { color: #6b4f3a; }
+#custom-record.active { color: #f7768e; }
+#custom-record:hover { background: #33241c; }
 #clock { color: #ff9e64; font-weight: bold; }
 #network { color: #e0af68; }
 #pulseaudio { color: #dba463; }

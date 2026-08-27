@@ -94,6 +94,7 @@ in
     bibata-cursors
     brightnessctl
     cliphist
+    flameshot
     grim
     hypridle
     hyprlock
@@ -105,6 +106,7 @@ in
     slurp
     swaybg
     waybar
+    wf-recorder
     wl-clipboard
     wofi
     xdg-utils
@@ -205,6 +207,18 @@ in
     };
     "waybar/scripts/battery-notify.sh" = {
       source = ../waybar/scripts/battery-notify.sh;
+      executable = true;
+    };
+    "waybar/scripts/screenshot.sh" = {
+      source = ../waybar/scripts/screenshot.sh;
+      executable = true;
+    };
+    "waybar/scripts/record-toggle.sh" = {
+      source = ../waybar/scripts/record-toggle.sh;
+      executable = true;
+    };
+    "waybar/scripts/record-status.sh" = {
+      source = ../waybar/scripts/record-status.sh;
       executable = true;
     };
     # Deployed to a stable path so hyprland.lua (verbatim, untemplated) can
