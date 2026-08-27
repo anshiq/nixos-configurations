@@ -61,7 +61,15 @@ mkdir -p "$(dirname "$bluelight_state")"
 bluelight_temp=$(cat "$bluelight_state")
 
 if [ "$mode" = "night" ]; then
-  pgrep -x hyprsunset >/dev/null || setsid -f hyprsunset -t "$bluelight_temp" >/dev/null 2>&1
+  if ! pgrep -x hyprsunset >/dev/null; then
+    setsid -f hyprsunset -t "$bluelight_temp" >/dev/null 2>&1
+    # setsid -f returns as soon as the process forks, before we know it
+    # actually stayed up - give it a moment then verify, since a failed
+    # launch here would otherwise be silent (stdout/stderr are discarded
+    # above) until the next scheduled switch.
+    sleep 0.3
+    pgrep -x hyprsunset >/dev/null || notify-send "Sunset theme" "hyprsunset (blue-light filter) failed to start" 2>/dev/null || true
+  fi
 else
   { pgrep -x hyprsunset >/dev/null && pkill -x hyprsunset; } || true
 fi
