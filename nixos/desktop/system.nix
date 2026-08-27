@@ -12,13 +12,13 @@ let
   # Theme.Current accepts directly for out-of-tree themes (see the nixpkgs
   # sddm module's own example).
   sddmWallpaperTheme = pkgs.runCommand "sddm-theme-maldives-wallpaper" { } ''
-    mkdir -p "$out/share/sddm/themes"
-    cp -r ${pkgs.kdePackages.sddm}/share/sddm/themes/maldives "$out/share/sddm/themes/maldives-wallpaper"
-    chmod -R u+w "$out/share/sddm/themes/maldives-wallpaper"
-    cat > "$out/share/sddm/themes/maldives-wallpaper/theme.conf" <<EOF
-[General]
-background=${wallpaper}
-EOF
+        mkdir -p "$out/share/sddm/themes"
+        cp -r ${pkgs.kdePackages.sddm}/share/sddm/themes/maldives "$out/share/sddm/themes/maldives-wallpaper"
+        chmod -R u+w "$out/share/sddm/themes/maldives-wallpaper"
+        cat > "$out/share/sddm/themes/maldives-wallpaper/theme.conf" <<EOF
+    [General]
+    background=${wallpaper}
+    EOF
   '';
 in
 {
@@ -31,13 +31,13 @@ in
   };
   programs.thunar.enable = true;
   programs.thunar.plugins = with pkgs.xfce; [
-  thunar-archive-plugin
-  thunar-volman
-];
+    thunar-archive-plugin
+    thunar-volman
+  ];
 
-services.gvfs.enable = true; # Mount, trash, and other functionalities
-services.tumbler.enable = true;
-programs.xfconf.enable = true;
+  services.gvfs.enable = true; # Mount, trash, and other functionalities
+  services.tumbler.enable = true;
+  programs.xfconf.enable = true;
 
   services.displayManager.sddm = {
     enable = true;

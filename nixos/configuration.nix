@@ -1,8 +1,6 @@
 # /etc/nixos/configuration.nix
 
 {
-  config,
-  lib,
   pkgs,
   ...
 }:
@@ -11,7 +9,7 @@
   imports = [
     # This file must come from the native NixOS installer for the target machine.
     # Generate it with `nixos-generate-config` before the first native rebuild.
-./hardware-configuration.nix
+    ./hardware-configuration.nix
     ./desktop/system.nix
   ];
 
@@ -19,9 +17,9 @@
   ## Native NixOS
   ############################
 
-boot.loader.systemd-boot.enable = true;
-boot.loader.efi.canTouchEfiVariables = true;
-nixpkgs.config.allowUnfree = true;
+  boot.loader.systemd-boot.enable = true;
+  boot.loader.efi.canTouchEfiVariables = true;
+  nixpkgs.config.allowUnfree = true;
 
   # WSL settings are intentionally retained only as migration documentation.
   # wsl.enable = true;
@@ -96,11 +94,11 @@ nixpkgs.config.allowUnfree = true;
 
     #gui zed
     wayland
-  libxkbcommon
-  vulkan-loader
-  libGL
-  fontconfig
-  freetype
+    libxkbcommon
+    vulkan-loader
+    libGL
+    fontconfig
+    freetype
 
     # Audio
     alsa-lib
@@ -130,10 +128,10 @@ nixpkgs.config.allowUnfree = true;
       "input"
     ];
     shell = pkgs.fish;
-initialPassword = "a";
+    initialPassword = "a";
 
   };
-security.sudo.enable = true;
+  security.sudo.enable = true;
 
   ############################
   ## System Packages
@@ -196,11 +194,11 @@ security.sudo.enable = true;
     gnupg
 
     #keyboard
-    xkeyboard-config 
+    xkeyboard-config
+    xclip
   ];
 
-  
-environment.sessionVariables.XKB_CONFIG_ROOT = "${pkgs.xkeyboard-config}/share/X11/xkb";
+  environment.sessionVariables.XKB_CONFIG_ROOT = "${pkgs.xkeyboard-config}/share/X11/xkb";
 
   ############################
   ## Git

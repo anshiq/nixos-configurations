@@ -10,7 +10,7 @@ language-servers = ["typescript-language-server", "eslint"]
 formatter = { command = "prettier", args = ["--parser", "typescript"] }
 auto-format = true
 indent = { tab-width = 2, unit = "  " }
- 
+
 # TypeScript
 [[language]]
 name = "typescript"
@@ -24,7 +24,7 @@ language-servers = ["typescript-language-server", "eslint"]
 formatter = { command = "prettier", args = ["--parser", "typescript"] }
 auto-format = true
 indent = { tab-width = 2, unit = "  " }
- 
+
 # JSX
 [[language]]
 name = "jsx"
@@ -38,7 +38,7 @@ formatter = { command = "prettier", args = ["--parser", "typescript"] }
 auto-format = true
 indent = { tab-width = 2, unit = "  " }
 grammar = "javascript"
- 
+
 # TSX (React TypeScript)
 [[language]]
 name = "tsx"
@@ -52,7 +52,7 @@ formatter = { command = "prettier", args = ["--parser", "typescript"] }
 auto-format = true
 indent = { tab-width = 2, unit = "  " }
 grammar = "tsx"
- 
+
 # JSON
 [[language]]
 name = "json"
@@ -63,7 +63,7 @@ language-servers = ["vscode-json-language-server"]
 formatter = { command = 'prettier', args = ["--parser", "json"] }
 auto-format = true
 indent = { tab-width = 2, unit = "  " }
- 
+
 # HTML
 [[language]]
 name = "html"
@@ -75,7 +75,7 @@ language-servers = ["vscode-html-language-server", "tailwindcss-ls"]
 formatter = { command = 'prettier', args = ["--parser", "html"] }
 auto-format = true
 indent = { tab-width = 2, unit = "  " }
- 
+
 # CSS
 [[language]]
 name = "css"
@@ -87,18 +87,33 @@ language-servers = ["vscode-css-language-server", "tailwindcss-ls"]
 formatter = { command = 'prettier', args = ["--parser", "css"] }
 auto-format = true
 indent = { tab-width = 2, unit = "  " }
- 
+
 # Markdown
 [[language]]
 name = "markdown"
 scope = "source.md"
 injection-regex = "md|markdown"
-file-types = ["md", "markdown", "mkd", "mdwn", "mdown", "markdn", "mdtxt", "mdtext", "workbook"]
+file-types = [
+  "md",
+  "markdown",
+  "mkd",
+  "mdwn",
+  "mdown",
+  "markdn",
+  "mdtxt",
+  "mdtext",
+  "workbook",
+]
 language-servers = ["marksman"]
-formatter = { command = 'prettier', args = ["--parser", "markdown", "--prose-wrap", "never"] }
+formatter = { command = 'prettier', args = [
+  "--parser",
+  "markdown",
+  "--prose-wrap",
+  "never",
+] }
 auto-format = true
 indent = { tab-width = 2, unit = "  " }
- 
+
 # YAML
 [[language]]
 name = "yaml"
@@ -109,7 +124,7 @@ language-servers = ["yaml-language-server"]
 formatter = { command = 'prettier', args = ["--parser", "yaml"] }
 auto-format = true
 indent = { tab-width = 2, unit = "  " }
- 
+
 # TOML
 [[language]]
 name = "toml"
@@ -121,7 +136,7 @@ language-servers = ["taplo"]
 formatter = { command = "taplo", args = ["fmt", "-"] }
 auto-format = true
 indent = { tab-width = 2, unit = "  " }
- 
+
 # Rust
 [[language]]
 name = "rust"
@@ -132,21 +147,23 @@ file-types = ["rs"]
 language-servers = ["rust-analyzer"]
 indent = { tab-width = 4, unit = "    " }
 auto-format = true
- 
+
 [language-server.rust-analyzer.config.check]
 command = "clippy"
- 
+
 [language.debugger]
 name = "lldb-19"
 transport = "stdio"
 command = "lldb-19"
- 
+
 [[language.debugger.templates]]
 name = "binary"
 request = "launch"
-completion = [ { name = "binary", completion = "filename" } ]
-args = { program = "{0}", initCommands = [ "command script import /usr/local/etc/lldb_vscode_rustc_primer.py" ] }
- 
+completion = [{ name = "binary", completion = "filename" }]
+args = { program = "{0}", initCommands = [
+  "command script import /usr/local/etc/lldb_vscode_rustc_primer.py",
+] }
+
 # Go
 [[language]]
 name = "go"
@@ -160,28 +177,58 @@ comment-token = "//"
 language-servers = ["gopls"]
 formatter = { command = "goimports" }
 indent = { tab-width = 4, unit = "\t" }
- 
+
 # C++
 [[language]]
 name = "cpp"
 scope = "source.cpp"
 injection-regex = "cpp"
-file-types = ["cc", "hh", "c++", "cpp", "hpp", "h", "ipp", "tpp", "cxx", "hxx", "ixx", "txx", "ino", "C", "H", "cu", "cuh", "cppm", "h++", "ii", "inl", { glob = ".hpp.in" }, { glob = ".h.in" }]
+file-types = [
+  "cc",
+  "hh",
+  "c++",
+  "cpp",
+  "hpp",
+  "h",
+  "ipp",
+  "tpp",
+  "cxx",
+  "hxx",
+  "ixx",
+  "txx",
+  "ino",
+  "C",
+  "H",
+  "cu",
+  "cuh",
+  "cppm",
+  "h++",
+  "ii",
+  "inl",
+  { glob = ".hpp.in" },
+  { glob = ".h.in" },
+]
 comment-token = "//"
 # block-comment-tokens = { start = "/*", end = "*/" }
 language-servers = ["clangd"]
 indent = { tab-width = 4, unit = "    " }
- 
+
 # Java
 [[language]]
 name = "java"
 scope = "source.java"
 injection-regex = "java"
 file-types = ["java"]
-roots = ["pom.xml", "build.gradle", "settings.gradle", "build.gradle.kts", "settings.gradle.kts"]
+roots = [
+  "pom.xml",
+  "build.gradle",
+  "settings.gradle",
+  "build.gradle.kts",
+  "settings.gradle.kts",
+]
 indent = { tab-width = 4, unit = "    " }
 language-servers = ["jdtls"]
- 
+
 # Python
 [[language]]
 name = "python"
@@ -189,43 +236,77 @@ scope = "source.python"
 injection-regex = "python"
 file-types = ["py", "pyi", "py3", "pyw", "ptl", "rpy", "cpy", "ipy", "pyt"]
 shebangs = ["python"]
-roots = ["pyproject.toml", "setup.py", "setup.cfg", "requirements.txt", "Pipfile"]
+roots = [
+  "pyproject.toml",
+  "setup.py",
+  "setup.cfg",
+  "requirements.txt",
+  "Pipfile",
+]
 comment-token = "#"
 language-servers = ["pylsp"]
 formatter = { command = "black", args = ["--quiet", "-"] }
 auto-format = true
 indent = { tab-width = 4, unit = "    " }
- 
+
 # Bash
 [[language]]
 name = "bash"
 scope = "source.bash"
 injection-regex = "(shell|bash|zsh|sh)"
-file-types = ["sh", "bash", "zsh", ".bash_login", ".bash_logout", ".bash_profile", ".bashrc", ".profile", ".zshenv", "zshenv", ".zlogin", "zlogin", ".zlogout", "zlogout", ".zprofile", "zprofile", ".zshrc", "zshrc", "APKBUILD", "PKGBUILD", ".bash_aliases", ".Renviron", ".xprofile", ".xsession", ".xsessionrc", ".yashrc", ".yash_profile", ".hushlogin"]
+file-types = [
+  "sh",
+  "bash",
+  "zsh",
+  ".bash_login",
+  ".bash_logout",
+  ".bash_profile",
+  ".bashrc",
+  ".profile",
+  ".zshenv",
+  "zshenv",
+  ".zlogin",
+  "zlogin",
+  ".zlogout",
+  "zlogout",
+  ".zprofile",
+  "zprofile",
+  ".zshrc",
+  "zshrc",
+  "APKBUILD",
+  "PKGBUILD",
+  ".bash_aliases",
+  ".Renviron",
+  ".xprofile",
+  ".xsession",
+  ".xsessionrc",
+  ".yashrc",
+  ".yash_profile",
+  ".hushlogin",
+]
 shebangs = ["sh", "bash", "dash", "zsh"]
 comment-token = "#"
 language-servers = ["bash-language-server"]
 formatter = { command = "shfmt", args = ["-i", "2", "-ci", "-bn"] }
 auto-format = true
 indent = { tab-width = 2, unit = "  " }
- 
+
 # ============================================================================
 # LANGUAGE SERVER CONFIGURATIONS
 # ============================================================================
- 
+
 # TypeScript Language Server (for JS, TS, JSX, TSX)
 [language-server.typescript-language-server]
 command = "typescript-language-server"
 args = ["--stdio"]
 config = { hostInfo = "helix" }
- 
- 
- 
+
+
 # ESLint Language Server
 [language-server.eslint]
 command = "vscode-eslint-language-server"
 args = ["--stdio"]
- 
+
 [language-server.eslint.config]
 validate = "on"
 experimental = { useFlatConfig = false }
@@ -235,65 +316,65 @@ problems = { shortenToSingleLine = false }
 nodePath = ""
 codeAction.disableRuleComment = { enable = true, location = "separateLine" }
 codeAction.showDocumentation = { enable = true }
- 
+
 # Tailwind CSS Language Server
 [language-server.tailwindcss-ls]
 command = "tailwindcss-language-server"
 args = ["--stdio"]
 config = {}
- 
+
 # JSON Language Server
 [language-server.vscode-json-language-server]
 command = "vscode-json-language-server"
 args = ["--stdio"]
- 
+
 [language-server.vscode-json-language-server.config]
 provideFormatter = true
 json = { validate = { enable = true }, format = { enable = true } }
- 
+
 # HTML Language Server
 [language-server.vscode-html-language-server]
 command = "vscode-html-language-server"
 args = ["--stdio"]
- 
+
 [language-server.vscode-html-language-server.config]
 provideFormatter = true
- 
+
 # CSS Language Server
 [language-server.vscode-css-language-server]
 command = "vscode-css-language-server"
 args = ["--stdio"]
- 
+
 [language-server.vscode-css-language-server.config]
 provideFormatter = true
 css = { validate = { enable = true } }
 scss = { validate = { enable = true } }
 less = { validate = { enable = true } }
- 
+
 # YAML Language Server
 [language-server.yaml-language-server]
 command = "yaml-language-server"
 args = ["--stdio"]
- 
+
 [language-server.yaml-language-server.config.yaml]
 format = { enable = true }
 validation = true
 schemas = { "https://json.schemastore.org/github-workflow.json" = ".github/workflows/*.{yml,yaml}" }
- 
+
 # Markdown Language Server
 [language-server.marksman]
 command = "marksman"
 args = ["server"]
- 
+
 # TOML Language Server
 [language-server.taplo]
 command = "taplo"
 args = ["lsp", "stdio"]
- 
+
 # Go Language Server
 [language-server.gopls]
 command = "gopls"
- 
+
 [language-server.gopls.config]
 gofumpt = true
 local = "goimports"
@@ -302,14 +383,14 @@ staticcheck = true
 verboseOutput = true
 completeUnimported = true
 usePlaceholders = true
- 
+
 [language-server.gopls.config.analyses]
 fieldalignment = true
 nilness = true
 unusedparams = true
 unusedwrite = true
 useany = true
- 
+
 [language-server.gopls.config.hints]
 assignVariableTypes = true
 compositeLiteralFields = true
@@ -318,20 +399,20 @@ constantValues = true
 functionTypeParameters = true
 parameterNames = true
 rangeVariableTypes = true
- 
+
 # C/C++ Language Server
 [language-server.clangd]
 command = "clangd"
 args = ["--background-index", "--clang-tidy", "--completion-style=detailed"]
- 
+
 # Java Language Server
 [language-server.jdtls]
 command = "jdtls"
- 
+
 # Python Language Server
 [language-server.pylsp]
 command = "pylsp"
- 
+
 [language-server.pylsp.config.pylsp.plugins]
 autopep8 = { enabled = false }
 flake8 = { enabled = true }
@@ -341,8 +422,17 @@ pydocstyle = { enabled = false }
 pyflakes = { enabled = false }
 pylint = { enabled = false }
 yapf = { enabled = false }
- 
+
 # Bash Language Server
 [language-server.bash-language-server]
 command = "bash-language-server"
 args = ["start"]
+
+[language-server.nixd]
+command = "nixd"
+
+[[language]]
+name = "nix"
+language-servers = ["nixd"]
+formatter = { command = "nixfmt" }
+auto-format = true

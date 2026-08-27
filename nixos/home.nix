@@ -33,11 +33,13 @@
     python3Packages.flake8
     bash-language-server
     kotlin-language-server
+    nixd
 
     # Formatters
     prettier
     black
     gotools # goimports
+    nixfmt-rfc-style # nix formatter
     shfmt
 
     # Used in your keybinds

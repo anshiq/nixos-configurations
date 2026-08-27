@@ -5,7 +5,6 @@
   ...
 }:
 
-
 let
   colors = {
     background = "1a1b26";
