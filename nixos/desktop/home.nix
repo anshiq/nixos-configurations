@@ -127,6 +127,16 @@ in
     # by theme-switch.sh, same pattern as waybar/style.css below.
   };
 
+  # Video/audio playback (files and streams). hwdec = "auto-safe" lets mpv
+  # use DRM/Wayland hardware decode when available and fall back to
+  # software decode otherwise, rather than forcing one path.
+  programs.mpv = {
+    enable = true;
+    config = {
+      hwdec = "auto-safe";
+    };
+  };
+
   # Hyprland >= 0.55 configs are Lua (hyprlang is deprecated). The module's
   # `settings` generator emits hyprlang-style options that 0.55+ rejects,
   # so the full config lives in ./hypr/hyprland.lua and is deployed
@@ -278,6 +288,15 @@ in
       "text/html" = "google-chrome.desktop";
       "x-scheme-handler/http" = "google-chrome.desktop";
       "x-scheme-handler/https" = "google-chrome.desktop";
+      "video/mp4" = "mpv.desktop";
+      "video/x-matroska" = "mpv.desktop";
+      "video/webm" = "mpv.desktop";
+      "video/x-msvideo" = "mpv.desktop";
+      "video/quicktime" = "mpv.desktop";
+      "audio/mpeg" = "mpv.desktop";
+      "audio/flac" = "mpv.desktop";
+      "audio/x-wav" = "mpv.desktop";
+      "audio/ogg" = "mpv.desktop";
     };
   };
 
