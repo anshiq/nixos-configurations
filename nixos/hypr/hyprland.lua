@@ -241,3 +241,16 @@ hl.window_rule({
   match = { class = "^(google-chrome|Google-chrome|firefox)$" },
   tile  = true,
 })
+
+-- Kooha auto-minimizes itself on GNOME once recording starts, but Hyprland
+-- (like most wlroots compositors) has no minimize support, so the window
+-- would otherwise just sit there full-size and block the screen. Shrink it
+-- into a small pinned widget in the corner instead.
+hl.window_rule({
+  name  = "kooha-recorder-widget",
+  match = { class = "^(io.github.seadve.Kooha)$" },
+  float = true,
+  size  = "380 520",
+  move  = "monitor_w-400 40",
+  pin   = true,
+})
