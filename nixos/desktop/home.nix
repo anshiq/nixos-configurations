@@ -100,8 +100,8 @@ in
     hyprlock
     hyprpicker
     hyprsunset
-    kooha
     libnotify
+    obs-studio
     pamixer
     playerctl
     slurp
@@ -221,10 +221,6 @@ in
     };
     "waybar/scripts/screenshot.sh" = {
       source = ../waybar/scripts/screenshot.sh;
-      executable = true;
-    };
-    "waybar/scripts/kooha.sh" = {
-      source = ../waybar/scripts/kooha.sh;
       executable = true;
     };
     # Deployed to a stable path so hyprland.lua (verbatim, untemplated) can

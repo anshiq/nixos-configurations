@@ -62,8 +62,8 @@
     },
     "custom/record": {
       "format": "󰑋",
-      "on-click": "$HOME/.config/waybar/scripts/kooha.sh",
-      "tooltip-format": "Screen recording (Kooha) - toggles it in/out of view"
+      "on-click": "obs --minimize-to-tray",
+      "tooltip-format": "Screen recording (OBS Studio) - opens minimized to the tray"
     },
     "custom/bluelight": {
       "exec": "$HOME/.config/waybar/scripts/bluelight-status.sh",
