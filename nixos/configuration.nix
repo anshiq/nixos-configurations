@@ -143,6 +143,12 @@
   virtualisation.docker.rootless = {
     enable = true;
     setSocketVariable = true;
+    # Google's public Docker Hub mirror. It's backed by Google's global
+    # edge network, which peers well in India and is noticeably faster
+    # than pulling directly from registry-1.docker.io.
+    daemon.settings = {
+      registry-mirrors = [ "https://mirror.gcr.io" ];
+    };
   };
 
   ############################
