@@ -199,6 +199,14 @@ in
       source = ../waybar/scripts/theme-status.sh;
       executable = true;
     };
+    "waybar/scripts/idle-unless-charging.sh" = {
+      source = ../waybar/scripts/idle-unless-charging.sh;
+      executable = true;
+    };
+    "waybar/scripts/battery-notify.sh" = {
+      source = ../waybar/scripts/battery-notify.sh;
+      executable = true;
+    };
     # Deployed to a stable path so hyprland.lua (verbatim, untemplated) can
     # point swaybg at it without a Nix store path baked into the Lua file.
     "wallpapers/wallpaper.png".source = wallpaper;
@@ -220,6 +228,10 @@ in
         after_sleep_cmd = "hyprctl dispatch dpms on";
         ignore_dbus_inhibit = false;
       };
+      # dpms-off and suspend go through idle-unless-charging.sh, which is a
+      # no-op while on AC power - the screen stays lit and the system stays
+      # awake as long as the charger is connected. Locking (600s) is
+      # unaffected: it fires on charge or battery, same as always.
       listener = [
         {
           timeout = 600;
@@ -227,12 +239,12 @@ in
         }
         {
           timeout = 900;
-          on-timeout = "hyprctl dispatch dpms off";
+          on-timeout = "${config.xdg.configHome}/waybar/scripts/idle-unless-charging.sh hyprctl dispatch dpms off";
           on-resume = "hyprctl dispatch dpms on";
         }
         {
           timeout = 1800;
-          on-timeout = "systemctl suspend";
+          on-timeout = "${config.xdg.configHome}/waybar/scripts/idle-unless-charging.sh systemctl suspend";
         }
       ];
     };
@@ -300,6 +312,27 @@ in
         "*-*-* 17:00:00"
       ];
       Persistent = true;
+    };
+    Install.WantedBy = [ "timers.target" ];
+  };
+
+  # Polls battery capacity every minute and notifies once at 15% and again
+  # at 5% while discharging (see waybar/scripts/battery-notify.sh) - the
+  # script itself tracks state so each threshold only fires once per
+  # discharge cycle.
+  systemd.user.services.battery-notify = {
+    Unit.Description = "Notify on low battery";
+    Service = {
+      Type = "oneshot";
+      ExecStart = "${config.xdg.configHome}/waybar/scripts/battery-notify.sh";
+    };
+  };
+
+  systemd.user.timers.battery-notify = {
+    Unit.Description = "Check battery level every minute";
+    Timer = {
+      OnBootSec = "1m";
+      OnUnitActiveSec = "1m";
     };
     Install.WantedBy = [ "timers.target" ];
   };
