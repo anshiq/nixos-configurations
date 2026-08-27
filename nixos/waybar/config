@@ -62,8 +62,8 @@
     },
     "custom/record": {
       "format": "󰑋",
-      "on-click": "kooha",
-      "tooltip-format": "Screen recording (Kooha)"
+      "on-click": "$HOME/.config/waybar/scripts/kooha.sh",
+      "tooltip-format": "Screen recording (Kooha) - toggles it in/out of view"
     },
     "custom/bluelight": {
       "exec": "$HOME/.config/waybar/scripts/bluelight-status.sh",

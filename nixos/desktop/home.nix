@@ -223,6 +223,10 @@ in
       source = ../waybar/scripts/screenshot.sh;
       executable = true;
     };
+    "waybar/scripts/kooha.sh" = {
+      source = ../waybar/scripts/kooha.sh;
+      executable = true;
+    };
     # Deployed to a stable path so hyprland.lua (verbatim, untemplated) can
     # point swaybg at it without a Nix store path baked into the Lua file.
     "wallpapers/wallpaper.png".source = wallpaper;

@@ -187,7 +187,7 @@ hl.bind(mod .. " + CTRL + L", hl.dsp.exec_cmd("pidof hyprlock || hyprlock"))
 -- same window - see waybar/scripts/screenshot.sh (also on the topbar icon).
 hl.bind("PRINT", hl.dsp.exec_cmd("$HOME/.config/waybar/scripts/screenshot.sh"))
 hl.bind(mod .. " + PRINT", hl.dsp.exec_cmd("hyprpicker -a"))
-hl.bind(mod .. " + SHIFT + PRINT", hl.dsp.exec_cmd("kooha"))
+hl.bind(mod .. " + SHIFT + PRINT", hl.dsp.exec_cmd("$HOME/.config/waybar/scripts/kooha.sh"))
 hl.bind(mod .. " + V", hl.dsp.exec_cmd("cliphist list | wofi --dmenu | cliphist decode | wl-copy"))
 
 -- Media / volume keys
@@ -243,14 +243,15 @@ hl.window_rule({
 })
 
 -- Kooha auto-minimizes itself on GNOME once recording starts, but Hyprland
--- (like most wlroots compositors) has no minimize support, so the window
--- would otherwise just sit there full-size and block the screen. Shrink it
--- into a small pinned widget in the corner instead.
+-- (like most wlroots compositors) has no minimize support, so a plain float
+-- rule still left it sitting on top of everything. Instead give it its own
+-- silent special workspace (same trick as the scratchpad above) - it opens
+-- off-screen so it never blocks anything, and waybar/scripts/kooha.sh
+-- toggles it into view to press Record/Stop.
 hl.window_rule({
-  name  = "kooha-recorder-widget",
-  match = { class = "^(io.github.seadve.Kooha)$" },
-  float = true,
-  size  = "380 520",
-  move  = "monitor_w-400 40",
-  pin   = true,
+  name      = "kooha-hidden-workspace",
+  match     = { class = "^(io.github.seadve.Kooha)$" },
+  float     = true,
+  size      = "380 520",
+  workspace = "special:kooha silent",
 })
