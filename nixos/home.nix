@@ -247,6 +247,18 @@
   };
 
   ############################################################
+  ## direnv - per-directory env vars (looks for a `.envrc` file in the
+  ## cwd or a parent dir; auto-exports its vars while you're inside that
+  ## tree and unsets them on leaving; prompts once for `direnv allow`
+  ## per project so nothing runs without your say-so).
+  ############################################################
+  programs.direnv = {
+    enable = true;
+    enableFishIntegration = true;
+    nix-direnv.enable = true; # caches `use nix`/`use flake` evaluations
+  };
+
+  ############################################################
   ## Zellij - terminal multiplexer
   ############################################################
   # NOTE: `zellij` did not exist anywhere in your original NixOS config
