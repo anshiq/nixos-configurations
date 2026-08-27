@@ -27,8 +27,7 @@ window#waybar {
 #custom-bluelight:hover { background: #33241c; }
 #custom-screenshot { color: #e0af68; }
 #custom-screenshot:hover { background: #33241c; }
-#custom-record.inactive { color: #6b4f3a; }
-#custom-record.active { color: #f7768e; }
+#custom-record { color: #f7768e; }
 #custom-record:hover { background: #33241c; }
 #clock { color: #ff9e64; font-weight: bold; }
 #network { color: #e0af68; }

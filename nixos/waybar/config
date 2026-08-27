@@ -61,11 +61,9 @@
       "tooltip-format": "Screenshot (drag the result into any app)"
     },
     "custom/record": {
-      "exec": "$HOME/.config/waybar/scripts/record-status.sh",
-      "on-click": "$HOME/.config/waybar/scripts/record-toggle.sh",
-      "return-type": "json",
-      "signal": 9,
-      "tooltip": true
+      "format": "󰑋",
+      "on-click": "kooha",
+      "tooltip-format": "Screen recording (Kooha)"
     },
     "custom/bluelight": {
       "exec": "$HOME/.config/waybar/scripts/bluelight-status.sh",

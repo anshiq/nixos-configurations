@@ -187,7 +187,7 @@ hl.bind(mod .. " + CTRL + L", hl.dsp.exec_cmd("pidof hyprlock || hyprlock"))
 -- same window - see waybar/scripts/screenshot.sh (also on the topbar icon).
 hl.bind("PRINT", hl.dsp.exec_cmd("$HOME/.config/waybar/scripts/screenshot.sh"))
 hl.bind(mod .. " + PRINT", hl.dsp.exec_cmd("hyprpicker -a"))
-hl.bind(mod .. " + SHIFT + PRINT", hl.dsp.exec_cmd("$HOME/.config/waybar/scripts/record-toggle.sh"))
+hl.bind(mod .. " + SHIFT + PRINT", hl.dsp.exec_cmd("kooha"))
 hl.bind(mod .. " + V", hl.dsp.exec_cmd("cliphist list | wofi --dmenu | cliphist decode | wl-copy"))
 
 -- Media / volume keys
