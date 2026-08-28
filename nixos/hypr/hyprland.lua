@@ -8,7 +8,10 @@
 local terminal = "ghostty"
 local browser  = "google-chrome-stable"
 local browser2 = "firefox"
-local menu     = "wofi --show drun --allow-images"
+-- Phase 4: the Quickshell launcher (quickshell/Launcher.qml) replaces wofi
+-- for both the drun app grid and the cliphist dmenu picker below - see
+-- /home/nixos/.claude/plans/stateless-wishing-willow.md.
+local menu     = "quickshell ipc call launcher openDrun"
 local mod      = "SUPER"
 
 ------------------
@@ -45,9 +48,16 @@ hl.on("hyprland.start", function()
   -- Same image hyprlock and the SDDM greeter use - see desktop/home.nix and
   -- desktop/system.nix.
   hl.exec_cmd("swaybg -i $HOME/.config/wallpapers/wallpaper.png -m fill")
-  hl.exec_cmd("waybar")
+  -- waybar/wofi retired - Quickshell (bar/launcher/power menu/notifications)
+  -- has full parity, see /home/nixos/.claude/plans/stateless-wishing-willow.md.
+  hl.exec_cmd("quickshell")
   -- hl.exec_cmd("mako")
-  -- hl.exec_cmd("nm-applet --indicator")
+  -- Kept only as NetworkManager's secret/polkit agent (saved networks whose
+  -- password isn't in the keyring still need something to prompt). Picking a
+  -- network is the topbar network widget's job now - it drives nmcli directly
+  -- and draws its own list, see quickshell/NetworkPanel.qml - and nm-applet's
+  -- own tray icon is hidden in plugins/user.tray/Tray.qml because of that.
+  hl.exec_cmd("nm-applet --indicator")
   -- hl.exec_cmd("wl-paste --type text --watch cliphist store")
   -- hl.exec_cmd("wl-paste --type image --watch cliphist store")
 end)
@@ -59,13 +69,13 @@ end)
 hl.config({
   general = {
     allow_tearing = false,
-    border_size   = 2,
+    border_size   = 1,
     col           = {
       active_border   = { colors = { "rgba(7aa2f7ee)", "rgba(bb9af7ee)" }, angle = 45 },
       inactive_border = "rgba(414868aa)",
     },
-    gaps_in          = 2,
-    gaps_out         = 4,
+    gaps_in          = 1,
+    gaps_out         = 1,
     layout           = "dwindle",
     resize_on_border = true,
   },
@@ -181,14 +191,20 @@ hl.bind(mod .. " + S", hl.dsp.workspace.toggle_special("scratchpad"))
 hl.bind(mod .. " + ALT + S", hl.dsp.window.move({ workspace = "special:scratchpad", follow = false }))
 
 -- Lock / screenshots / recording / clipboard
-hl.bind(mod .. " + CTRL + L", hl.dsp.exec_cmd("pidof hyprlock || hyprlock"))
+-- Phase 7: Quickshell's LockScreen.qml is the active lock (IPC-triggered) -
+-- see quickshell/LockScreen.qml. Manual fallback: `pidof hyprlock || hyprlock`.
+hl.bind(mod .. " + CTRL + L", hl.dsp.exec_cmd("quickshell ipc call lockscreen lock"))
 -- flameshot's capture window supports dragging the screenshot thumbnail
 -- straight into another app (macOS-style), plus copy/save/annotate from the
 -- same window - see waybar/scripts/screenshot.sh (also on the topbar icon).
 hl.bind("PRINT", hl.dsp.exec_cmd("$HOME/.config/waybar/scripts/screenshot.sh"))
 hl.bind(mod .. " + PRINT", hl.dsp.exec_cmd("hyprpicker -a"))
 hl.bind(mod .. " + SHIFT + PRINT", hl.dsp.exec_cmd("obs --minimize-to-tray"))
-hl.bind(mod .. " + V", hl.dsp.exec_cmd("cliphist list | wofi --dmenu | cliphist decode | wl-copy"))
+hl.bind(mod .. " + V", hl.dsp.exec_cmd("cliphist list | $HOME/.config/quickshell/scripts/dmenu.sh | cliphist decode | wl-copy"))
+-- Manual day/sunset theme override - theme-switch.sh with no arg is clock
+-- based (05:00-17:00 = day) for the systemd timer/login path, so it needs an
+-- explicit "toggle" arg here to actually flip outside that schedule.
+hl.bind(mod .. " + SHIFT + T", hl.dsp.exec_cmd("$HOME/.config/waybar/scripts/theme-switch.sh toggle"))
 
 -- Media / volume keys
 hl.bind("XF86AudioMute", hl.dsp.exec_cmd("pamixer --toggle-mute"), { locked = true })

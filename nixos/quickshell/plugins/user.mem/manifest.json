@@ -1,0 +1,8 @@
+{
+  "id": "user.mem",
+  "name": "Memory",
+  "kind": "bar-widget",
+  "entryPoint": "Mem.qml",
+  "section": "right",
+  "tooltip": "Memory usage"
+}

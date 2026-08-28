@@ -1,0 +1,9 @@
+module shell
+singleton Colors 1.0 Colors.qml
+Bar 1.0 Bar.qml
+Launcher 1.0 Launcher.qml
+LockScreen 1.0 LockScreen.qml
+Notifications 1.0 Notifications.qml
+NetworkPanel 1.0 NetworkPanel.qml
+PluginRow 1.0 PluginRow.qml
+PowerMenu 1.0 PowerMenu.qml

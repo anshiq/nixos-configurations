@@ -1,0 +1,8 @@
+{
+  "id": "user.battery",
+  "name": "Battery",
+  "kind": "bar-widget",
+  "entryPoint": "Battery.qml",
+  "section": "right",
+  "tooltip": "Battery status - click for details via system tray"
+}

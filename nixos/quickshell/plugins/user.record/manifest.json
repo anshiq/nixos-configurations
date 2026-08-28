@@ -1,0 +1,8 @@
+{
+  "id": "user.record",
+  "name": "Record",
+  "kind": "bar-widget",
+  "entryPoint": "RecordButton.qml",
+  "section": "right",
+  "tooltip": "Toggle screen recording"
+}

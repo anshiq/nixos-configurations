@@ -1,0 +1,8 @@
+{
+  "id": "user.tray",
+  "name": "System Tray",
+  "kind": "bar-widget",
+  "entryPoint": "Tray.qml",
+  "section": "right",
+  "tooltip": "System tray"
+}

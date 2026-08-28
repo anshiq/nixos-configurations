@@ -1,0 +1,8 @@
+{
+  "id": "user.power",
+  "name": "Power",
+  "kind": "bar-widget",
+  "entryPoint": "PowerButton.qml",
+  "section": "right",
+  "tooltip": "Power menu - lock, sleep, restart, shut down"
+}

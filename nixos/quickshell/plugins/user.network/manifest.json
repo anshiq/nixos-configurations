@@ -1,0 +1,8 @@
+{
+  "id": "user.network",
+  "name": "Network",
+  "kind": "bar-widget",
+  "entryPoint": "NetworkWidget.qml",
+  "section": "right",
+  "tooltip": "Network - click to pick a Wi-Fi network"
+}

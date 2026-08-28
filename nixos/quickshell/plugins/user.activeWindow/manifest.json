@@ -1,0 +1,9 @@
+{
+  "id": "user.activeWindow",
+  "name": "Active Window",
+  "kind": "bar-widget",
+  "entryPoint": "ActiveWindow.qml",
+  "section": "left",
+  "layoutMaximumWidth": 400,
+  "tooltip": "Active window title"
+}

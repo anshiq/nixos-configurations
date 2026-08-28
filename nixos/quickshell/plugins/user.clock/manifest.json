@@ -1,0 +1,8 @@
+{
+  "id": "user.clock",
+  "name": "Clock",
+  "kind": "bar-widget",
+  "entryPoint": "ClockWidget.qml",
+  "section": "center",
+  "tooltip": "Date and time"
+}

@@ -48,6 +48,17 @@ in
   security.polkit.enable = true;
   services.gnome.gnome-keyring.enable = true;
 
+  # home-manager's programs.hyprlock module does NOT register a PAM service
+  # on its own (its own docs say so) - without this, hyprlock authenticates
+  # against /etc/pam.d/other, which unconditionally denies (pam_deny.so), so
+  # no password would ever unlock it. This was missing before the Quickshell
+  # lock screen work below and is fixed here regardless of which lock screen
+  # is active. quickshell-lock is the PAM service Quickshell's LockScreen.qml
+  # (Quickshell.Services.Pam PamContext) authenticates against - see
+  # quickshell/LockScreen.qml.
+  security.pam.services.hyprlock = { };
+  security.pam.services.quickshell-lock = { };
+
   xdg.portal = {
     enable = true;
     xdgOpenUsePortal = true;

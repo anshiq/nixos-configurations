@@ -1,0 +1,8 @@
+{
+  "id": "user.bluelight",
+  "name": "Blue Light",
+  "kind": "bar-widget",
+  "entryPoint": "BluelightButton.qml",
+  "section": "right",
+  "tooltip": "Toggle blue light filter"
+}

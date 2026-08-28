@@ -1,0 +1,8 @@
+{
+  "id": "user.screenshot",
+  "name": "Screenshot",
+  "kind": "bar-widget",
+  "entryPoint": "ScreenshotButton.qml",
+  "section": "right",
+  "tooltip": "Take a screenshot"
+}

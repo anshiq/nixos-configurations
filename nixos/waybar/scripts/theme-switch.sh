@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Switches the whole desktop between the day theme (06:00-17:00) and the
-# sunset/night theme (everything else): waybar, ghostty, kitty, wofi, mako,
-# and hyprlock each get their active config symlink repointed, then get
-# nudged to reload; Hyprland's own border colors are updated live via
+# Switches the whole desktop between the day theme (05:00-17:00) and the
+# sunset/night theme (everything else): ghostty, kitty, and hyprlock each get
+# their active config symlink repointed, then get nudged to reload (waybar,
+# wofi and mako are gone as of Phase 2/4/6 - Quickshell's Colors.qml watches
+# theme.json directly, see below); Hyprland's own border colors are updated
+# live via
 # `hyprctl eval` (no config file/reload involved for those); hyprsunset
 # (the blue-light filter) is auto-started going into night and auto-stopped
 # going into day, at whatever warmth was last saved via the topbar scroll
@@ -13,37 +15,73 @@
 # non-legacy (Lua) parsers ("keyword can't work with non-legacy parsers.
 # Use eval.") - `eval` runs a Lua snippet against the live config instead,
 # so the border override has to go through hl.config(...).
+# Optional arg: "day"/"night" force that mode; "toggle" flips whatever's
+# currently active (read from the ghostty symlink, the same source of truth
+# theme-status.sh uses). No arg (the systemd timer / login-autostart path)
+# keeps the original clock-based behavior. This is what lets a manual
+# keybind (see hyprland.lua's mod+SHIFT+T) actually change anything - running
+# this with no override just recomputes the same clock-based mode you're
+# already in most of the time, which looks like "toggling does nothing".
 set -euo pipefail
 
-hour=$(date +%-H)
-if [ "$hour" -ge 6 ] && [ "$hour" -lt 17 ]; then
-  mode="day"
-else
-  mode="night"
-fi
-
-waybar_cfg="$HOME/.config/waybar"
 ghostty_cfg="$HOME/.config/ghostty"
-kitty_cfg="$HOME/.config/kitty"
-wofi_cfg="$HOME/.config/wofi"
-mako_cfg="$HOME/.config/mako"
-hypr_cfg="$HOME/.config/hypr"
 
-ln -sfn "$waybar_cfg/style-$mode.css" "$waybar_cfg/style.css"
+case "${1:-}" in
+  day | night)
+    mode="$1"
+    ;;
+  toggle)
+    current=$(readlink "$ghostty_cfg/config" 2>/dev/null || true)
+    case "$current" in
+      */config-night) mode="day" ;;
+      *) mode="night" ;;
+    esac
+    ;;
+  "")
+    hour=$(date +%-H)
+    if [ "$hour" -ge 5 ] && [ "$hour" -lt 17 ]; then
+      mode="day"
+    else
+      mode="night"
+    fi
+    ;;
+  *)
+    echo "usage: theme-switch.sh [day|night|toggle]" >&2
+    exit 1
+    ;;
+esac
+
+kitty_cfg="$HOME/.config/kitty"
+hypr_cfg="$HOME/.config/hypr"
+# quickshell/ (unlike the directories above) is deployed as a single
+# whole-directory xdg.configFile symlink straight into the Nix store, so
+# ~/.config/quickshell itself is read-only - theme.json can't be written
+# there. It lives in state dir instead; Colors.qml watches it at this path.
+quickshell_cfg="$HOME/.config/quickshell"
+quickshell_state="$HOME/.local/state/quickshell"
+
 ln -sfn "$ghostty_cfg/config-$mode" "$ghostty_cfg/config"
 ln -sfn "$kitty_cfg/kitty-$mode.conf" "$kitty_cfg/kitty.conf"
-ln -sfn "$wofi_cfg/style-$mode.css" "$wofi_cfg/style.css"
-ln -sfn "$mako_cfg/config-$mode" "$mako_cfg/config"
 ln -sfn "$hypr_cfg/hyprlock-$mode.conf" "$hypr_cfg/hyprlock.conf"
+# Quickshell's Colors.qml watches theme.json for live changes (see
+# quickshell/Colors.qml) - a real content copy rather than a symlink swap,
+# since a symlink retarget doesn't reliably fire the inotify watch Quickshell
+# uses to detect the change. `install` (not `cp`) deliberately: the source is
+# a read-only (444) nix store file, and a plain `cp` onto a *new*
+# destination inherits that source mode, leaving theme.json permanently
+# unwritable (silent `set -e` abort here on every run after the first,
+# breaking every switch since - border colors, hyprsunset, and the bar
+# palette all live past this line). `install` always writes the given mode
+# on the destination instead of inheriting the source's.
+mkdir -p "$quickshell_state"
+install -m 644 "$quickshell_cfg/theme-$mode.json" "$quickshell_state/theme.json"
 
 # Symlink swaps don't touch the watched inode, so each running app needs an
 # explicit nudge rather than relying on its own file-watcher to notice the
-# change. wofi and hyprlock are launched fresh each time, so they just pick
-# up the new symlink target on their next run - no nudge needed for them.
-pkill -SIGUSR2 -x waybar 2>/dev/null || true
+# change. hyprlock is launched fresh each time, so it just picks up the new
+# symlink target on its next run - no nudge needed for it.
 pkill -SIGUSR2 -x ghostty 2>/dev/null || true
 pkill -SIGUSR1 -x kitty 2>/dev/null || true
-command -v makoctl >/dev/null 2>&1 && makoctl reload 2>/dev/null || true
 
 if [ "$mode" = "day" ]; then
   active_border_colors='"rgba(7aa2f7ee)", "rgba(bb9af7ee)"'
@@ -73,4 +111,3 @@ if [ "$mode" = "night" ]; then
 else
   { pgrep -x hyprsunset >/dev/null && pkill -x hyprsunset; } || true
 fi
-pkill -RTMIN+8 -x waybar 2>/dev/null || true

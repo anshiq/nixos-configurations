@@ -40,7 +40,6 @@ let
   wallpaper = ./wallpapers/shortcuts-latest.png;
   terminal = "ghostty";
   browser = "google-chrome-stable";
-  lock = "pidof hyprlock || hyprlock";
 
   # Builds a hyprlock settings attrset from a color set (`colors` or
   # `nightColors`). Rendered to two static confs below and flipped between
@@ -104,11 +103,10 @@ in
     obs-studio
     pamixer
     playerctl
+    quickshell
     slurp
     swaybg
-    waybar
     wl-clipboard
-    wofi
     xdg-utils
   ];
 
@@ -151,22 +149,43 @@ in
   # (same pattern as ./helix and ./yazi).
   xdg.configFile = {
     "hypr/hyprland.lua".source = ../hypr/hyprland.lua;
-    "waybar/config".source = ../waybar/config;
-    # style.css, ghostty/config, kitty/kitty.conf, wofi/style.css,
-    # mako/config, and hypr/hyprlock.conf are NOT managed here: each is a
-    # runtime symlink flipped between its day/night variant below by
-    # theme-switch.sh, so home-manager activation doesn't fight the
-    # day/night switcher while the session is running.
-    "waybar/style-day.css".source = ../waybar/style-day.css;
-    "waybar/style-night.css".source = ../waybar/style-night.css;
+    # Quickshell replacement for waybar/wofi/mako/hyprlock, migrated in
+    # phases - see /home/nixos/.claude/plans/stateless-wishing-willow.md.
+    # Bar/launcher/power menu/notifications/lock screen all have full parity
+    # now (Phase 7 done - see LockScreen.qml); waybar/wofi are retired.
+    # hyprlock stays installed as a manual fallback for the lock screen
+    # only, not autostarted. Whole directory deployed since the QML config
+    # is split across multiple files (Bar.qml, Colors.qml, per-module files).
+    #
+    # Deliberately an *out-of-store* symlink straight into the working tree
+    # rather than `.source = ../quickshell` (the pattern every other config
+    # here uses). Quickshell reloads QML from disk on the fly, so pointing at
+    # the checkout makes editing a widget or writing a new plugin a
+    # save-and-look loop instead of a `cp -r` + `nixos-rebuild switch` round
+    # trip - which is the entire reason for the plugin system.
+    #
+    # It MUST be declared here rather than hand-made with `ln -s`. A hand-made
+    # symlink is a file home-manager does not own, and checkLinkTargets aborts
+    # the whole activation on one of those *before linking anything*, so every
+    # other file under ~/.config silently stops updating while `nixos-rebuild
+    # switch` still exits 0. That is exactly what happened here, and it is why
+    # the theme-toggle and keybind fixes never reached the running system
+    # despite being committed and built. See home-manager.backupFileExtension
+    # in flake.nix for the second layer of protection.
+    #
+    # Trade-off to know about: the running desktop shell now depends on this
+    # checkout existing at this path. Moving or deleting it leaves the session
+    # with no bar/launcher/lock screen (hyprlock stays installed as the
+    # documented manual fallback - see LockScreen.qml).
+    "quickshell".source = config.lib.file.mkOutOfStoreSymlink "/home/nixos/myprojects/nixos-configurations/nixos/quickshell";
+    # style.css, ghostty/config, kitty/kitty.conf, and hypr/hyprlock.conf are
+    # NOT managed here: each is a runtime symlink flipped between its
+    # day/night variant below by theme-switch.sh, so home-manager activation
+    # doesn't fight the day/night switcher while the session is running.
     "ghostty/config-day".source = ../ghostty/config-day;
     "ghostty/config-night".source = ../ghostty/config-night;
     "kitty/kitty-day.conf".source = ../kitty/kitty-day.conf;
     "kitty/kitty-night.conf".source = ../kitty/kitty-night.conf;
-    "wofi/style-day.css".source = ../wofi/style-day.css;
-    "wofi/style-night.css".source = ../wofi/style-night.css;
-    "mako/config-day".source = ../mako/config-day;
-    "mako/config-night".source = ../mako/config-night;
     "hypr/hyprlock-day.conf".text = lib.hm.generators.toHyprconf {
       attrs = hyprlockSettings colors;
       importantPrefixes = [
@@ -226,43 +245,40 @@ in
     # Deployed to a stable path so hyprland.lua (verbatim, untemplated) can
     # point swaybg at it without a Nix store path baked into the Lua file.
     "wallpapers/wallpaper.png".source = wallpaper;
-    "wofi/config".source = ../wofi/config;
   };
 
-  # Waybar package comes from home.packages above; config/style from ./waybar/.
+  # waybar/wofi removed in Phase 2/4 - Quickshell's Bar/Launcher (see
+  # ../quickshell/) have full parity and reuse the scripts above directly.
 
-  # Keep the service enabled: it provides the package + systemd autostart;
-  # config itself is a runtime symlink to ./mako/config-{day,night} (see
-  # xdg.configFile above), flipped by theme-switch.sh.
-  services.mako.enable = true;
-  services.hypridle = {
-    enable = true;
-    settings = {
-      general = {
-        lock_cmd = lock;
-        before_sleep_cmd = "loginctl lock-session";
-        after_sleep_cmd = "hyprctl dispatch dpms on";
-        ignore_dbus_inhibit = false;
-      };
-      # dpms-off and suspend go through idle-unless-charging.sh, which is a
-      # no-op while on AC power - the screen stays lit and the system stays
-      # awake as long as the charger is connected. Locking (600s) is
-      # unaffected: it fires on charge or battery, same as always.
-      listener = [
-        {
-          timeout = 600;
-          on-timeout = lock;
-        }
-        {
-          timeout = 900;
-          on-timeout = "${config.xdg.configHome}/waybar/scripts/idle-unless-charging.sh hyprctl dispatch dpms off";
-          on-resume = "hyprctl dispatch dpms on";
-        }
-        {
-          timeout = 1800;
-          on-timeout = "${config.xdg.configHome}/waybar/scripts/idle-unless-charging.sh systemctl suspend";
-        }
-      ];
+  # mako removed in Phase 6 - notifications are now served by Quickshell's
+  # NotificationServer (see quickshell/Notifications.qml), which registers
+  # as the org.freedesktop.Notifications DBus provider itself.
+  # Idle timeouts (lock/screen-off/suspend) used to be static values baked
+  # into a home-manager-generated (read-only) hypridle.conf - changing them
+  # meant editing this file and rebuilding. They're now runtime-configurable
+  # from the power menu's settings panel (see quickshell/PowerMenu.qml), so
+  # hypridle.conf itself is generated by quickshell/scripts/idle-settings.sh
+  # from ~/.local/state/quickshell/idle-settings.json instead of by
+  # home-manager - hence no `services.hypridle` module usage (that module
+  # owns ~/.config/hypr/hypridle.conf itself, which would fight the script's
+  # writes) and a hand-rolled systemd unit below instead. `generate` runs as
+  # ExecStartPre so hypridle always has a config to read, even on first run
+  # before any setting has been changed (falls back to the script's
+  # defaults). The settings panel calls `idle-settings.sh set <mins>...`
+  # directly, which rewrites the conf and restarts this unit itself.
+  systemd.user.services.hypridle = {
+    Unit = {
+      ConditionEnvironment = "WAYLAND_DISPLAY";
+      Description = "hypridle";
+      After = [ config.wayland.systemd.target ];
+      PartOf = [ config.wayland.systemd.target ];
+    };
+    Install.WantedBy = [ config.wayland.systemd.target ];
+    Service = {
+      ExecStartPre = "%h/.config/quickshell/scripts/idle-settings.sh generate";
+      ExecStart = "${pkgs.hypridle}/bin/hypridle";
+      Restart = "always";
+      RestartSec = "10";
     };
   };
 
@@ -316,11 +332,11 @@ in
   # Let GUI applications find SSH/GPG credentials through the session keyring.
   services.gnome-keyring.enable = true;
 
-  # Day theme 06:00-17:00, sunset/night theme the rest of the time - applies
-  # to waybar, ghostty, kitty, wofi, mako, hyprlock, and Hyprland's own
-  # border colors (see waybar/scripts/theme-switch.sh). Also run once at
-  # login (see hypr/hyprland.lua autostart) so everything starts on the
-  # right theme without waiting for the first timer tick.
+  # Day theme 05:00-17:00, sunset/night theme the rest of the time - applies
+  # to ghostty, kitty, hyprlock, Quickshell (bar/launcher/notifications), and
+  # Hyprland's own border colors (see waybar/scripts/theme-switch.sh). Also
+  # run once at login (see hypr/hyprland.lua autostart) so everything starts
+  # on the right theme without waiting for the first timer tick.
   systemd.user.services.waybar-theme-switch = {
     Unit.Description = "Switch the whole desktop between day and sunset themes";
     Service = {
@@ -330,10 +346,10 @@ in
   };
 
   systemd.user.timers.waybar-theme-switch = {
-    Unit.Description = "Trigger the waybar day/sunset theme switch at 06:00 and 17:00";
+    Unit.Description = "Trigger the day/sunset theme switch at 05:00 and 17:00";
     Timer = {
       OnCalendar = [
-        "*-*-* 06:00:00"
+        "*-*-* 05:00:00"
         "*-*-* 17:00:00"
       ];
       Persistent = true;
