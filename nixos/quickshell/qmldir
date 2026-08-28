@@ -1,5 +1,6 @@
 module shell
 singleton Colors 1.0 Colors.qml
+singleton PluginRegistry 1.0 PluginRegistry.qml
 Bar 1.0 Bar.qml
 Launcher 1.0 Launcher.qml
 LockScreen 1.0 LockScreen.qml

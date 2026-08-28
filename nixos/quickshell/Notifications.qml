@@ -3,8 +3,8 @@
 // unit needed (services.mako.enable removed from desktop/home.nix). Visual
 // intent matches the old mako/config-{day,night}: square corners, 360px
 // wide, 2px border, 5s auto-dismiss - colors come from the same
-// Colors singleton/theme.json Phase 3 wired up, plus an `accent` field added
-// to theme-day.json/theme-night.json to match mako's border-color exactly
+// Colors singleton/theme.json Phase 3 wired up, plus an `accent` field on
+// every theme (see nixos/themes/) to match mako's border-color exactly
 // (it didn't line up with any existing palette entry).
 pragma ComponentBehavior: Bound
 import QtQuick

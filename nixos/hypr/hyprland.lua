@@ -66,13 +66,32 @@ end)
 ---- LOOK AND FEEL ----
 -----------------
 
+-- Border colors come from ~/.config/hypr/colors.lua, a symlink
+-- theme-switch.sh repoints at whichever theme's generated
+-- colors-<name>.lua (see nixos/themes/generators.nix's toHyprColorsLua) is
+-- currently active. Reading it here at config-parse time - rather than
+-- only patching borders live via theme-switch.sh's `hyprctl eval` - means a
+-- plain `hyprctl reload` (or a full Hyprland restart) always comes back on
+-- the correct theme's colors instead of resetting to whatever was hardcoded
+-- in this file.
+local colorsOk, colors = pcall(dofile, os.getenv("HOME") .. "/.config/hypr/colors.lua")
+if not colorsOk then
+  -- First run before theme-switch.sh has ever created the symlink (or the
+  -- symlink is broken) - fall back to the tokyo-night values so the config
+  -- still parses.
+  colors = {
+    active = { colors = { "rgba(7aa2f7ee)", "rgba(bb9af7ee)" }, angle = 45 },
+    inactive = "rgba(414868aa)",
+  }
+end
+
 hl.config({
   general = {
     allow_tearing = false,
     border_size   = 1,
     col           = {
-      active_border   = { colors = { "rgba(7aa2f7ee)", "rgba(bb9af7ee)" }, angle = 45 },
-      inactive_border = "rgba(414868aa)",
+      active_border   = colors.active,
+      inactive_border = colors.inactive,
     },
     gaps_in          = 1,
     gaps_out         = 1,
@@ -201,9 +220,12 @@ hl.bind("PRINT", hl.dsp.exec_cmd("$HOME/.config/waybar/scripts/screenshot.sh"))
 hl.bind(mod .. " + PRINT", hl.dsp.exec_cmd("hyprpicker -a"))
 hl.bind(mod .. " + SHIFT + PRINT", hl.dsp.exec_cmd("obs --minimize-to-tray"))
 hl.bind(mod .. " + V", hl.dsp.exec_cmd("cliphist list | $HOME/.config/quickshell/scripts/dmenu.sh | cliphist decode | wl-copy"))
--- Manual day/sunset theme override - theme-switch.sh with no arg is clock
--- based (05:00-17:00 = day) for the systemd timer/login path, so it needs an
--- explicit "toggle" arg here to actually flip outside that schedule.
+-- Manual day/night theme override - theme-switch.sh with no arg follows
+-- ~/.config/waybar/scripts/schedule.list (see nixos/themes/schedule.nix)
+-- for the systemd timer/login path, so it needs an explicit "toggle" arg
+-- here to actually flip outside that schedule. `theme-switch.sh <name>` or
+-- `theme-switch.sh next` also work from a terminal for picking a specific
+-- theme or cycling through all of them.
 hl.bind(mod .. " + SHIFT + T", hl.dsp.exec_cmd("$HOME/.config/waybar/scripts/theme-switch.sh toggle"))
 
 -- Media / volume keys

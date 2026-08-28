@@ -24,16 +24,24 @@ PanelWindow {
             "right": []
         })
 
+    function applyLayout(json) {
+        try {
+            root.layout = JSON.parse(json);
+        } catch (e) {
+            console.warn("Bar: failed to load plugin-layout.json: " + e);
+        }
+    }
+
     FileView {
         id: layoutFile
         path: `${Quickshell.env("HOME")}/.config/quickshell/plugin-layout.json`
-        onLoaded: {
-            try {
-                root.layout = JSON.parse(text());
-            } catch (e) {
-                console.warn("Bar: failed to load plugin-layout.json: " + e);
-            }
-        }
+        // Live-reloads so quickshell/scripts/plugin.sh enable/disable takes
+        // effect immediately, same as Colors.qml watching theme.json -
+        // no bar restart needed to pick up a plugin change.
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: root.applyLayout(text())
+        onTextChanged: root.applyLayout(text())
     }
 
     PluginRow {

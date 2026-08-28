@@ -6,6 +6,10 @@
   ...
 }:
 
+let
+  themes = import ./themes;
+  themeGen = import ./themes/generators.nix { inherit lib; };
+in
 {
   imports = [ ./desktop/home.nix ];
 
@@ -309,38 +313,14 @@
 
       load_plugins = [ "zellij:link" ];
 
-      themes.tokyo-night = {
-        fg = "#a9b1d6";
-        bg = "#1a1b26";
-        black = "#414868";
-        red = "#f7768e";
-        green = "#9ece6a";
-        yellow = "#e0af68";
-        blue = "#7aa2f7";
-        magenta = "#bb9af7";
-        cyan = "#7dcfff";
-        white = "#c0caf5";
-        orange = "#ff9e64";
-      };
-
-      # Warm counterpart used 17:00-06:00 - same palette family as the
-      # waybar/ghostty/kitty/wofi/mako/hyprlock night themes. Both themes
-      # live in the same config.kdl (zellij has no live theme reload), and
-      # the `zellij` fish function below picks which one to launch with via
-      # `--theme`, based on time of day.
-      themes.sunset-night = {
-        fg = "#e0c2a8";
-        bg = "#1e1512";
-        black = "#4a3728";
-        red = "#f7768e";
-        green = "#b9ca6a";
-        yellow = "#e0af68";
-        blue = "#e8935c";
-        magenta = "#dba463";
-        cyan = "#ffb37a";
-        white = "#f5e3d0";
-        orange = "#ff9e64";
-      };
+      # Rendered from the shared theme definitions in ./themes/ (see
+      # themes/generators.nix's toZellijTheme) instead of a hand-copied
+      # palette - keeps this in sync with ghostty/kitty/hyprlock/Quickshell
+      # automatically. zellij has no live theme reload, so all themes still
+      # live in the same config.kdl; the `zellij` fish function below picks
+      # which one to launch with via `--theme`, based on time of day.
+      themes.tokyo-night = themeGen.toZellijTheme themes.tokyo-night;
+      themes.sunset-night = themeGen.toZellijTheme themes.sunset-night;
 
       web_client.font = "JetBrainsMono Nerd Font";
     };

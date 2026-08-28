@@ -1,8 +1,9 @@
 // Phase 3: theme unification. Palette now comes from
 // ~/.config/quickshell/theme.json instead of a hardcoded day palette - that
-// file is a plain copy of theme-day.json/theme-night.json (rendered by
-// home-manager from the same colors/nightColors data nixos/desktop/home.nix
-// already uses for hyprlock), overwritten in place by
+// file is a plain copy of one of the theme-<name>.json files (one per theme
+// under nixos/themes/, rendered by desktop/home.nix's toQuickshellTheme -
+// see themes/generators.nix - and written into this checkout by the
+// quickshellThemes activation script), overwritten in place by
 // waybar/scripts/theme-switch.sh on every switch. watchChanges + reload()
 // below picks up that overwrite live, no bar restart needed.
 pragma Singleton

@@ -35,8 +35,23 @@ RowLayout {
                 onLoaded: {
                     try {
                         const m = JSON.parse(text());
-                        pluginLoader.source = `${root.pluginsDir}/${pluginLoader.pluginId}/${m.entryPoint}`;
-                        pluginLoader.tooltipText = m.tooltip || "";
+                        // Accepts both our own flat manifest shape
+                        // (entryPoint/tooltip at the top level - see
+                        // plugins/user.*/manifest.json) and real Omarchy's
+                        // schemaVersion-1 shape (entryPoints.barWidget,
+                        // barWidget.description/.displayName) - see
+                        // quickshell/scripts/plugin.sh's `add`, which can
+                        // pull either kind of plugin in. Only the manifest
+                        // shape is normalized here; an Omarchy plugin whose
+                        // QML imports `qs.Commons`/`qs.Ui` (Omarchy's own
+                        // design-system modules, e.g. Style/Color/
+                        // BarIconButton) still won't resolve those imports
+                        // in this shell - that's a QML API gap this
+                        // normalization does not and cannot paper over.
+                        const entryPoint = m.entryPoint || (m.entryPoints && m.entryPoints.barWidget);
+                        const tooltip = m.tooltip || (m.barWidget && (m.barWidget.description || m.barWidget.displayName)) || m.name || "";
+                        pluginLoader.source = `${root.pluginsDir}/${pluginLoader.pluginId}/${entryPoint}`;
+                        pluginLoader.tooltipText = tooltip;
                         if (m.layoutMaximumWidth)
                             pluginLoader.Layout.maximumWidth = m.layoutMaximumWidth;
                     } catch (e) {

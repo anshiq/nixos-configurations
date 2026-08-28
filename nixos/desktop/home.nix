@@ -6,33 +6,43 @@
 }:
 
 let
-  colors = {
-    background = "1a1b26";
-    darkBackground = "13141c";
-    lighterBackground = "24283b";
-    selection = "292e42";
-    muted = "414868";
-    foreground = "a9b1d6";
-    brightForeground = "c0caf5";
-    red = "f7768e";
-    green = "9ece6a";
-    yellow = "e0af68";
-    blue = "7aa2f7";
-    magenta = "bb9af7";
-    cyan = "7dcfff";
-    accent = "7aa2f7"; # = blue; used by hyprlockSettings below
-  };
+  # Single source of truth for every theme's palette (see ../themes/) and
+  # the pure render functions turning one into ghostty/kitty/hyprlock/
+  # Quickshell/Hyprland-border config text (../themes/generators.nix).
+  # Adding a theme = add one file under ../themes/ - everything below
+  # iterates `themes` and `schedule`, no other change needed here.
+  themes = import ../themes;
+  gen = import ../themes/generators.nix { inherit lib; };
+  schedule = import ../themes/schedule.nix;
 
-  # Warm/sunset counterpart to `colors` above, used for the night variant of
-  # hyprlock (see hyprlockSettings below) - same palette family as the
-  # waybar/ghostty/kitty night themes.
-  nightColors = {
-    background = "1e1512";
-    darkBackground = "140d09";
-    foreground = "e0c2a8";
-    brightForeground = "f5e3d0";
-    accent = "ffb37a";
-  };
+  # Third-party bar-widget plugins - see ../plugins/default.nix. Read
+  # directly (not via IFD on the fetched `src`s - see the activation script
+  # below for why) so evaluating this file never needs network access or a
+  # plugin's source to already be built.
+  externalPlugins = import ../plugins { inherit pkgs; };
+
+  # First-party plugin manifests, read directly from the checkout (real
+  # files already on disk, safe at eval time - no IFD). Combined with
+  # `externalPlugins` below into plugin-registry.json: the full list of
+  # every plugin the shell knows about, independent of whether it's
+  # currently enabled on the bar (that's plugin-layout.json's job, edited by
+  # quickshell/scripts/plugin.sh).
+  builtinPluginDirs = builtins.attrNames (
+    lib.filterAttrs (name: type: type == "directory") (builtins.readDir ../quickshell/plugins)
+  );
+  builtinPluginManifest =
+    dir: builtins.fromJSON (builtins.readFile (../quickshell/plugins + "/${dir}/manifest.json"));
+  # `origin` (builtin/external) is separate from the manifest's own `kind`
+  # field (which describes the widget type, e.g. "bar-widget") - added
+  # rather than overwritten.
+  pluginRegistry =
+    (map (dir: (builtinPluginManifest dir) // { origin = "builtin"; }) builtinPluginDirs)
+    ++ (lib.mapAttrsToList (id: p: {
+      inherit id;
+      name = p.name;
+      kind = "bar-widget";
+      origin = "external";
+    }) externalPlugins);
 
   # Checked into version control (nixos/desktop/wallpapers/) - the same file
   # is used for the desktop background (swaybg), hyprlock, and the SDDM
@@ -41,9 +51,9 @@ let
   terminal = "ghostty";
   browser = "google-chrome-stable";
 
-  # Builds a hyprlock settings attrset from a color set (`colors` or
-  # `nightColors`). Rendered to two static confs below and flipped between
-  # by theme-switch.sh at runtime, since programs.hyprlock only generates a
+  # Builds a hyprlock settings attrset from a theme (see ../themes/). One
+  # static conf is rendered per theme below and flipped between by
+  # theme-switch.sh at runtime, since programs.hyprlock only generates a
   # single ~/.config/hypr/hyprlock.conf from one settings block.
   hyprlockSettings = c: {
     general = {
@@ -99,6 +109,7 @@ in
     hyprlock
     hyprpicker
     hyprsunset
+    jq # quickshell/scripts/plugin.sh
     libnotify
     obs-studio
     pamixer
@@ -147,105 +158,165 @@ in
 
   # Static configs deployed verbatim from dedicated directories
   # (same pattern as ./helix and ./yazi).
-  xdg.configFile = {
-    "hypr/hyprland.lua".source = ../hypr/hyprland.lua;
-    # Quickshell replacement for waybar/wofi/mako/hyprlock, migrated in
-    # phases - see /home/nixos/.claude/plans/stateless-wishing-willow.md.
-    # Bar/launcher/power menu/notifications/lock screen all have full parity
-    # now (Phase 7 done - see LockScreen.qml); waybar/wofi are retired.
-    # hyprlock stays installed as a manual fallback for the lock screen
-    # only, not autostarted. Whole directory deployed since the QML config
-    # is split across multiple files (Bar.qml, Colors.qml, per-module files).
+  xdg.configFile =
+    {
+      "hypr/hyprland.lua".source = ../hypr/hyprland.lua;
+      # Quickshell replacement for waybar/wofi/mako/hyprlock, migrated in
+      # phases - see /home/nixos/.claude/plans/stateless-wishing-willow.md.
+      # Bar/launcher/power menu/notifications/lock screen all have full parity
+      # now (Phase 7 done - see LockScreen.qml); waybar/wofi are retired.
+      # hyprlock stays installed as a manual fallback for the lock screen
+      # only, not autostarted. Whole directory deployed since the QML config
+      # is split across multiple files (Bar.qml, Colors.qml, per-module files).
+      #
+      # Deliberately an *out-of-store* symlink straight into the working tree
+      # rather than `.source = ../quickshell` (the pattern every other config
+      # here uses). Quickshell reloads QML from disk on the fly, so pointing at
+      # the checkout makes editing a widget or writing a new plugin a
+      # save-and-look loop instead of a `cp -r` + `nixos-rebuild switch` round
+      # trip - which is the entire reason for the plugin system.
+      #
+      # It MUST be declared here rather than hand-made with `ln -s`. A hand-made
+      # symlink is a file home-manager does not own, and checkLinkTargets aborts
+      # the whole activation on one of those *before linking anything*, so every
+      # other file under ~/.config silently stops updating while `nixos-rebuild
+      # switch` still exits 0. That is exactly what happened here, and it is why
+      # the theme-toggle and keybind fixes never reached the running system
+      # despite being committed and built. See home-manager.backupFileExtension
+      # in flake.nix for the second layer of protection.
+      #
+      # Trade-off to know about: the running desktop shell now depends on this
+      # checkout existing at this path. Moving or deleting it leaves the session
+      # with no bar/launcher/lock screen (hyprlock stays installed as the
+      # documented manual fallback - see LockScreen.qml).
+      "quickshell".source = config.lib.file.mkOutOfStoreSymlink "/home/nixos/myprojects/nixos-configurations/nixos/quickshell";
+      "waybar/scripts/power-menu.sh" = {
+        source = ../waybar/scripts/power-menu.sh;
+        executable = true;
+      };
+      "waybar/scripts/theme-switch.sh" = {
+        source = ../waybar/scripts/theme-switch.sh;
+        executable = true;
+      };
+      "waybar/scripts/bluelight-toggle.sh" = {
+        source = ../waybar/scripts/bluelight-toggle.sh;
+        executable = true;
+      };
+      "waybar/scripts/bluelight-status.sh" = {
+        source = ../waybar/scripts/bluelight-status.sh;
+        executable = true;
+      };
+      "waybar/scripts/bluelight-adjust.sh" = {
+        source = ../waybar/scripts/bluelight-adjust.sh;
+        executable = true;
+      };
+      "waybar/scripts/theme-status.sh" = {
+        source = ../waybar/scripts/theme-status.sh;
+        executable = true;
+      };
+      "waybar/scripts/idle-unless-charging.sh" = {
+        source = ../waybar/scripts/idle-unless-charging.sh;
+        executable = true;
+      };
+      "waybar/scripts/battery-notify.sh" = {
+        source = ../waybar/scripts/battery-notify.sh;
+        executable = true;
+      };
+      "waybar/scripts/screenshot.sh" = {
+        source = ../waybar/scripts/screenshot.sh;
+        executable = true;
+      };
+      # Deployed to a stable path so hyprland.lua (verbatim, untemplated) can
+      # point swaybg at it without a Nix store path baked into the Lua file.
+      "wallpapers/wallpaper.png".source = wallpaper;
+    }
+    # style.css, ghostty/config, kitty/kitty.conf, hypr/hyprlock.conf, and
+    # hypr/colors.lua are NOT managed directly: each is a runtime symlink
+    # flipped between per-theme variants (generated below) by
+    # theme-switch.sh, so home-manager activation doesn't fight the switcher
+    # while the session is running.
     #
-    # Deliberately an *out-of-store* symlink straight into the working tree
-    # rather than `.source = ../quickshell` (the pattern every other config
-    # here uses). Quickshell reloads QML from disk on the fly, so pointing at
-    # the checkout makes editing a widget or writing a new plugin a
-    # save-and-look loop instead of a `cp -r` + `nixos-rebuild switch` round
-    # trip - which is the entire reason for the plugin system.
-    #
-    # It MUST be declared here rather than hand-made with `ln -s`. A hand-made
-    # symlink is a file home-manager does not own, and checkLinkTargets aborts
-    # the whole activation on one of those *before linking anything*, so every
-    # other file under ~/.config silently stops updating while `nixos-rebuild
-    # switch` still exits 0. That is exactly what happened here, and it is why
-    # the theme-toggle and keybind fixes never reached the running system
-    # despite being committed and built. See home-manager.backupFileExtension
-    # in flake.nix for the second layer of protection.
-    #
-    # Trade-off to know about: the running desktop shell now depends on this
-    # checkout existing at this path. Moving or deleting it leaves the session
-    # with no bar/launcher/lock screen (hyprlock stays installed as the
-    # documented manual fallback - see LockScreen.qml).
-    "quickshell".source = config.lib.file.mkOutOfStoreSymlink "/home/nixos/myprojects/nixos-configurations/nixos/quickshell";
-    # style.css, ghostty/config, kitty/kitty.conf, and hypr/hyprlock.conf are
-    # NOT managed here: each is a runtime symlink flipped between its
-    # day/night variant below by theme-switch.sh, so home-manager activation
-    # doesn't fight the day/night switcher while the session is running.
-    "ghostty/config-day".source = ../ghostty/config-day;
-    "ghostty/config-night".source = ../ghostty/config-night;
-    "kitty/kitty-day.conf".source = ../kitty/kitty-day.conf;
-    "kitty/kitty-night.conf".source = ../kitty/kitty-night.conf;
-    "hypr/hyprlock-day.conf".text = lib.hm.generators.toHyprconf {
-      attrs = hyprlockSettings colors;
-      importantPrefixes = [
-        "$"
-        "bezier"
-        "monitor"
-        "size"
-        "source"
-      ];
+    # One variant of each per-theme file is generated per entry in
+    # ../themes/ (see ../themes/generators.nix) - adding a theme there
+    # automatically gets a full file set here, no change needed in this
+    # block.
+    // (lib.concatMapAttrs (name: theme: {
+      "ghostty/config-${name}".text = gen.toGhosttyConfig theme;
+      "kitty/kitty-${name}.conf".text = gen.toKittyConfig theme;
+      "hypr/colors-${name}.lua".text = gen.toHyprColorsLua theme;
+      "hypr/hyprlock-${name}.conf".text = lib.hm.generators.toHyprconf {
+        attrs = hyprlockSettings theme;
+        importantPrefixes = [
+          "$"
+          "bezier"
+          "monitor"
+          "size"
+          "source"
+        ];
+      };
+    }) themes)
+    // {
+      # theme-switch.sh's own view of what themes exist: one name per line
+      # (cycle order for `next`), a "name kind" table (for `toggle`'s
+      # day/night lookup), and a "time name" table (for the no-arg
+      # clock-based lookup, from ../themes/schedule.nix).
+      "waybar/scripts/themes.list".text = lib.concatStringsSep "\n" (builtins.attrNames themes) + "\n";
+      "waybar/scripts/theme-kinds.list".text =
+        lib.concatStringsSep "\n" (lib.mapAttrsToList (name: t: "${name} ${t.kind}") themes) + "\n";
+      "waybar/scripts/schedule.list".text = lib.concatStringsSep "\n" (map (e: "${e.time} ${e.theme}") schedule) + "\n";
     };
-    "hypr/hyprlock-night.conf".text = lib.hm.generators.toHyprconf {
-      attrs = hyprlockSettings nightColors;
-      importantPrefixes = [
-        "$"
-        "bezier"
-        "monitor"
-        "size"
-        "source"
-      ];
-    };
-    "waybar/scripts/power-menu.sh" = {
-      source = ../waybar/scripts/power-menu.sh;
-      executable = true;
-    };
-    "waybar/scripts/theme-switch.sh" = {
-      source = ../waybar/scripts/theme-switch.sh;
-      executable = true;
-    };
-    "waybar/scripts/bluelight-toggle.sh" = {
-      source = ../waybar/scripts/bluelight-toggle.sh;
-      executable = true;
-    };
-    "waybar/scripts/bluelight-status.sh" = {
-      source = ../waybar/scripts/bluelight-status.sh;
-      executable = true;
-    };
-    "waybar/scripts/bluelight-adjust.sh" = {
-      source = ../waybar/scripts/bluelight-adjust.sh;
-      executable = true;
-    };
-    "waybar/scripts/theme-status.sh" = {
-      source = ../waybar/scripts/theme-status.sh;
-      executable = true;
-    };
-    "waybar/scripts/idle-unless-charging.sh" = {
-      source = ../waybar/scripts/idle-unless-charging.sh;
-      executable = true;
-    };
-    "waybar/scripts/battery-notify.sh" = {
-      source = ../waybar/scripts/battery-notify.sh;
-      executable = true;
-    };
-    "waybar/scripts/screenshot.sh" = {
-      source = ../waybar/scripts/screenshot.sh;
-      executable = true;
-    };
-    # Deployed to a stable path so hyprland.lua (verbatim, untemplated) can
-    # point swaybg at it without a Nix store path baked into the Lua file.
-    "wallpapers/wallpaper.png".source = wallpaper;
-  };
+
+  # quickshell/ is deployed as a single out-of-store symlink to the live
+  # checkout above (so QML edits are picked up without a rebuild), which
+  # means home-manager can't override individual files inside it the way
+  # xdg.configFile does elsewhere. Each theme's data file is instead written
+  # into the checkout directly on every activation - QML stays hand-edited,
+  # theme data stays Nix-generated. theme-switch.sh then copies whichever of
+  # these is active into ~/.local/state/quickshell/theme.json (see there for
+  # why it's a copy and not a symlink).
+  home.activation.quickshellThemes = lib.hm.dag.entryAfter [ "writeBoundary" ] (
+    lib.concatStringsSep "\n" (
+      lib.mapAttrsToList (name: theme: ''
+        install -m 644 ${pkgs.writeText "theme-${name}.json" (builtins.toJSON (gen.toQuickshellTheme theme))} \
+          "/home/nixos/myprojects/nixos-configurations/nixos/quickshell/theme-${name}.json"
+      '') themes
+    )
+  );
+
+  # Same live-checkout constraint as quickshellThemes above, for plugins:
+  # - plugin-registry.json (every known plugin, builtin + external - see
+  #   `pluginRegistry` above) is written into the checkout the same way
+  #   theme-<name>.json is, for quickshell/PluginRegistry.qml to read.
+  # - Each ../plugins/default.nix entry's fetched `src` is symlinked
+  #   straight into quickshell/plugins/<id>, alongside the hand-written
+  #   user.* plugin directories - PluginRow.qml resolves both the same way
+  #   (by id under ~/.config/quickshell/plugins/), so an external plugin is
+  #   indistinguishable from a first-party one once symlinked in. Stale
+  #   symlinks for ids removed from ../plugins/default.nix are cleaned up
+  #   first so a removed plugin actually disappears on the next switch.
+  home.activation.quickshellPlugins = lib.hm.dag.entryAfter [ "writeBoundary" ] (
+    let
+      pluginsDir = "/home/nixos/myprojects/nixos-configurations/nixos/quickshell/plugins";
+    in
+    ''
+      install -m 644 ${pkgs.writeText "plugin-registry.json" (builtins.toJSON pluginRegistry)} \
+        "/home/nixos/myprojects/nixos-configurations/nixos/quickshell/plugin-registry.json"
+
+      for existing in "${pluginsDir}"/*; do
+        [ -L "$existing" ] || continue
+        id="$(basename "$existing")"
+        case " ${lib.concatStringsSep " " (builtins.attrNames externalPlugins)} " in
+          *" $id "*) : ;;
+          *) rm -f "$existing" ;;
+        esac
+      done
+    ''
+    + lib.concatStringsSep "\n" (
+      lib.mapAttrsToList (id: plugin: ''
+        ln -sfn ${plugin.src} "${pluginsDir}/${id}"
+      '') externalPlugins
+    )
+  );
 
   # waybar/wofi removed in Phase 2/4 - Quickshell's Bar/Launcher (see
   # ../quickshell/) have full parity and reuse the scripts above directly.
@@ -266,21 +337,92 @@ in
   # before any setting has been changed (falls back to the script's
   # defaults). The settings panel calls `idle-settings.sh set <mins>...`
   # directly, which rewrites the conf and restarts this unit itself.
-  systemd.user.services.hypridle = {
-    Unit = {
-      ConditionEnvironment = "WAYLAND_DISPLAY";
-      Description = "hypridle";
-      After = [ config.wayland.systemd.target ];
-      PartOf = [ config.wayland.systemd.target ];
-    };
-    Install.WantedBy = [ config.wayland.systemd.target ];
-    Service = {
-      ExecStartPre = "%h/.config/quickshell/scripts/idle-settings.sh generate";
-      ExecStart = "${pkgs.hypridle}/bin/hypridle";
-      Restart = "always";
-      RestartSec = "10";
-    };
-  };
+  # All systemd.user services/timers in this module are collected into the
+  # two assignments below (rather than one dotted `systemd.user.services.foo
+  # = ...;` per unit) so the schedule-driven theme units - one per
+  # ../themes/schedule.nix entry, name/count not known until that list is
+  # read - can be spliced in with `//`/`lib.listToAttrs` alongside the
+  # hand-written ones without Nix's attribute-set-literal rules treating
+  # "systemd.user.services.hypridle = ..." and a later flat
+  # "systemd.user.services = ..." as conflicting definitions of the same
+  # path.
+  systemd.user.services =
+    {
+      hypridle = {
+        Unit = {
+          ConditionEnvironment = "WAYLAND_DISPLAY";
+          Description = "hypridle";
+          After = [ config.wayland.systemd.target ];
+          PartOf = [ config.wayland.systemd.target ];
+        };
+        Install.WantedBy = [ config.wayland.systemd.target ];
+        Service = {
+          ExecStartPre = "%h/.config/quickshell/scripts/idle-settings.sh generate";
+          ExecStart = "${pkgs.hypridle}/bin/hypridle";
+          Restart = "always";
+          RestartSec = "10";
+        };
+      };
+      # Polls battery capacity every minute and notifies once at 15% and
+      # again at 5% while discharging (see waybar/scripts/battery-notify.sh)
+      # - the script itself tracks state so each threshold only fires once
+      # per discharge cycle.
+      battery-notify = {
+        Unit.Description = "Notify on low battery";
+        Service = {
+          Type = "oneshot";
+          ExecStart = "${config.xdg.configHome}/waybar/scripts/battery-notify.sh";
+        };
+      };
+    }
+    # One timer+service pair per ../themes/schedule.nix entry - applies to
+    # ghostty, kitty, hyprlock, Quickshell (bar/launcher/notifications), and
+    # Hyprland's own border colors (see waybar/scripts/theme-switch.sh).
+    # `systemctl --user list-timers` shows all of them; each is
+    # independently inspectable as theme-<name>.timer/.service. Also run
+    # once at login (see hypr/hyprland.lua autostart, no-arg
+    # theme-switch.sh) so the session starts on whichever theme's window
+    # contains the current time, without waiting for the next timer tick.
+    // lib.listToAttrs (
+      map (entry: {
+        name = "theme-${entry.theme}";
+        value = {
+          Unit.Description = "Switch the desktop to the ${entry.theme} theme";
+          Service = {
+            Type = "oneshot";
+            ExecStart = "%h/.config/waybar/scripts/theme-switch.sh ${entry.theme}";
+          };
+        };
+      }) schedule
+    );
+
+  systemd.user.timers =
+    {
+      battery-notify = {
+        Unit.Description = "Check battery level every minute";
+        Timer = {
+          OnBootSec = "1m";
+          OnUnitActiveSec = "1m";
+        };
+        Install.WantedBy = [ "timers.target" ];
+      };
+    }
+    // lib.listToAttrs (
+      map (entry: {
+        name = "theme-${entry.theme}";
+        value = {
+          Unit.Description = "Trigger the ${entry.theme} theme at ${entry.time}";
+          Timer = {
+            OnCalendar = "*-*-* ${entry.time}:00";
+            # Catches up on a transition missed while asleep/off at the
+            # trigger time, rather than staying on the previous theme until
+            # the next one fires.
+            Persistent = true;
+          };
+          Install.WantedBy = [ "timers.target" ];
+        };
+      }) schedule
+    );
 
   # Package + PAM wiring only - no `settings` here, since that generates
   # ~/.config/hypr/hyprlock.conf directly and would collide with the
@@ -331,50 +473,4 @@ in
 
   # Let GUI applications find SSH/GPG credentials through the session keyring.
   services.gnome-keyring.enable = true;
-
-  # Day theme 05:00-17:00, sunset/night theme the rest of the time - applies
-  # to ghostty, kitty, hyprlock, Quickshell (bar/launcher/notifications), and
-  # Hyprland's own border colors (see waybar/scripts/theme-switch.sh). Also
-  # run once at login (see hypr/hyprland.lua autostart) so everything starts
-  # on the right theme without waiting for the first timer tick.
-  systemd.user.services.waybar-theme-switch = {
-    Unit.Description = "Switch the whole desktop between day and sunset themes";
-    Service = {
-      Type = "oneshot";
-      ExecStart = "%h/.config/waybar/scripts/theme-switch.sh";
-    };
-  };
-
-  systemd.user.timers.waybar-theme-switch = {
-    Unit.Description = "Trigger the day/sunset theme switch at 05:00 and 17:00";
-    Timer = {
-      OnCalendar = [
-        "*-*-* 05:00:00"
-        "*-*-* 17:00:00"
-      ];
-      Persistent = true;
-    };
-    Install.WantedBy = [ "timers.target" ];
-  };
-
-  # Polls battery capacity every minute and notifies once at 15% and again
-  # at 5% while discharging (see waybar/scripts/battery-notify.sh) - the
-  # script itself tracks state so each threshold only fires once per
-  # discharge cycle.
-  systemd.user.services.battery-notify = {
-    Unit.Description = "Notify on low battery";
-    Service = {
-      Type = "oneshot";
-      ExecStart = "${config.xdg.configHome}/waybar/scripts/battery-notify.sh";
-    };
-  };
-
-  systemd.user.timers.battery-notify = {
-    Unit.Description = "Check battery level every minute";
-    Timer = {
-      OnBootSec = "1m";
-      OnUnitActiveSec = "1m";
-    };
-    Install.WantedBy = [ "timers.target" ];
-  };
 }
