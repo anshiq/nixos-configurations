@@ -287,13 +287,24 @@ in
   # - plugin-registry.json (every known plugin, builtin + external - see
   #   `pluginRegistry` above) is written into the checkout the same way
   #   theme-<name>.json is, for quickshell/PluginRegistry.qml to read.
-  # - Each ../plugins/default.nix entry's fetched `src` is symlinked
-  #   straight into quickshell/plugins/<id>, alongside the hand-written
-  #   user.* plugin directories - PluginRow.qml resolves both the same way
-  #   (by id under ~/.config/quickshell/plugins/), so an external plugin is
-  #   indistinguishable from a first-party one once symlinked in. Stale
-  #   symlinks for ids removed from ../plugins/default.nix are cleaned up
-  #   first so a removed plugin actually disappears on the next switch.
+  # - Each ../plugins/default.nix entry's fetched `src` is placed under
+  #   quickshell/plugins/<id>, alongside the hand-written user.* plugin
+  #   directories - PluginRow.qml resolves both the same way (by id under
+  #   ~/.config/quickshell/plugins/), so an external plugin is
+  #   indistinguishable from a first-party one once in place.
+  #
+  #   `<id>` is a real (writable) directory with each of `src`'s files
+  #   symlinked in individually - NOT `<id>` itself symlinked whole to
+  #   `src` (a read-only Nix store path) - because a multi-file plugin
+  #   needs a real qmldir alongside its own files (see
+  #   quickshell/scripts/plugin.sh's generate_plugin_qmldir for why: a
+  #   plugin whose widget instantiates sibling files as bare types, e.g.
+  #   Panel.qml referencing a sibling Model.qml, hits "X is not a type" at
+  #   runtime without one - Quickshell's implicit per-directory type
+  #   synthesis doesn't reliably apply under its own `qs:` URL scheme). A
+  #   `.nix-managed` marker distinguishes these from hand-written/`plugin.sh
+  #   add`-installed directories, so the stale-cleanup below only ever
+  #   removes directories this activation itself created.
   home.activation.quickshellPlugins = lib.hm.dag.entryAfter [ "writeBoundary" ] (
     let
       pluginsDir = "/home/nixos/myprojects/nixos-configurations/nixos/quickshell/plugins";
@@ -303,17 +314,32 @@ in
         "/home/nixos/myprojects/nixos-configurations/nixos/quickshell/plugin-registry.json"
 
       for existing in "${pluginsDir}"/*; do
-        [ -L "$existing" ] || continue
+        [ -f "$existing/.nix-managed" ] || continue
         id="$(basename "$existing")"
         case " ${lib.concatStringsSep " " (builtins.attrNames externalPlugins)} " in
           *" $id "*) : ;;
-          *) rm -f "$existing" ;;
+          *) rm -rf "$existing" ;;
         esac
       done
     ''
     + lib.concatStringsSep "\n" (
       lib.mapAttrsToList (id: plugin: ''
-        ln -sfn ${plugin.src} "${pluginsDir}/${id}"
+        target="${pluginsDir}/${id}"
+        rm -rf "$target"
+        mkdir -p "$target"
+        for f in ${plugin.src}/*; do
+          ln -sfn "$f" "$target/$(basename "$f")"
+        done
+        touch "$target/.nix-managed"
+        if [ ! -e "$target/qmldir" ]; then
+          {
+            for f in "$target"/*.qml; do
+              [ -e "$f" ] || continue
+              base=$(basename "$f" .qml)
+              echo "$base 1.0 $(basename "$f")"
+            done
+          } > "$target/qmldir"
+        fi
       '') externalPlugins
     )
   );

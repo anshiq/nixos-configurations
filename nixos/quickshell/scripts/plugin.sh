@@ -48,6 +48,30 @@ usage() {
   exit 1
 }
 
+# Multi-file plugins (e.g. a widget that instantiates sibling files like
+# UsageGrid.qml/BoundedReader.qml as bare types) rely on Quickshell's
+# implicit per-directory type synthesis - which does NOT reliably apply to
+# files loaded under Quickshell's own `qs:` scheme (used for everything
+# under ~/.config/quickshell/, including plugin directories), even though
+# it works for single-file plugins. Symptom: "X is not a type" in
+# `quickshell log`, and the widget silently never renders. Generating an
+# explicit qmldir (no `module` line, so it works for same-directory access
+# without an import, exactly like the implicit case was supposed to)
+# sidesteps the limitation. Skipped if the plugin ships its own qmldir -
+# never override one a plugin author wrote on purpose.
+generate_plugin_qmldir() {
+  local dir="$1"
+  [ -f "$dir/qmldir" ] && return
+  local f base
+  {
+    for f in "$dir"/*.qml; do
+      [ -e "$f" ] || continue
+      base=$(basename "$f" .qml)
+      echo "$base 1.0 $(basename "$f")"
+    done
+  } > "$dir/qmldir"
+}
+
 register_manual_plugin() {
   local id="$1" name="$2"
   local tmp
@@ -103,6 +127,7 @@ case "${1:-}" in
     mv "$clone_tmp" "$target"
     trap - EXIT
 
+    generate_plugin_qmldir "$target"
     register_manual_plugin "$id" "${name:-$id}"
     echo "added $id (from $url) into $target"
 
