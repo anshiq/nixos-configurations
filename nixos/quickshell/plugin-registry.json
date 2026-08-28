@@ -1,0 +1,132 @@
+[
+  {
+    "entryPoint": "ActiveWindow.qml",
+    "id": "user.activeWindow",
+    "kind": "bar-widget",
+    "layoutMaximumWidth": 400,
+    "name": "Active Window",
+    "origin": "builtin",
+    "section": "left",
+    "tooltip": "Active window title"
+  },
+  {
+    "entryPoint": "Battery.qml",
+    "id": "user.battery",
+    "kind": "bar-widget",
+    "name": "Battery",
+    "origin": "builtin",
+    "section": "right",
+    "tooltip": "Battery status - click for details via system tray"
+  },
+  {
+    "entryPoint": "BluelightButton.qml",
+    "id": "user.bluelight",
+    "kind": "bar-widget",
+    "name": "Blue Light",
+    "origin": "builtin",
+    "section": "right",
+    "tooltip": "Toggle blue light filter"
+  },
+  {
+    "entryPoint": "ClockWidget.qml",
+    "id": "user.clock",
+    "kind": "bar-widget",
+    "name": "Clock",
+    "origin": "builtin",
+    "section": "center",
+    "tooltip": "Date and time"
+  },
+  {
+    "entryPoint": "Cpu.qml",
+    "id": "user.cpu",
+    "kind": "bar-widget",
+    "name": "CPU",
+    "origin": "builtin",
+    "section": "right",
+    "tooltip": "CPU usage"
+  },
+  {
+    "entryPoint": "Mem.qml",
+    "id": "user.mem",
+    "kind": "bar-widget",
+    "name": "Memory",
+    "origin": "builtin",
+    "section": "right",
+    "tooltip": "Memory usage"
+  },
+  {
+    "entryPoint": "NetworkWidget.qml",
+    "id": "user.network",
+    "kind": "bar-widget",
+    "name": "Network",
+    "origin": "builtin",
+    "section": "right",
+    "tooltip": "Network - click to pick a Wi-Fi network"
+  },
+  {
+    "entryPoint": "PowerButton.qml",
+    "id": "user.power",
+    "kind": "bar-widget",
+    "name": "Power",
+    "origin": "builtin",
+    "section": "right",
+    "tooltip": "Power menu - lock, sleep, restart, shut down"
+  },
+  {
+    "entryPoint": "RecordButton.qml",
+    "id": "user.record",
+    "kind": "bar-widget",
+    "name": "Record",
+    "origin": "builtin",
+    "section": "right",
+    "tooltip": "Toggle screen recording"
+  },
+  {
+    "entryPoint": "ScreenshotButton.qml",
+    "id": "user.screenshot",
+    "kind": "bar-widget",
+    "name": "Screenshot",
+    "origin": "builtin",
+    "section": "right",
+    "tooltip": "Take a screenshot"
+  },
+  {
+    "entryPoint": "Tray.qml",
+    "id": "user.tray",
+    "kind": "bar-widget",
+    "name": "System Tray",
+    "origin": "builtin",
+    "section": "right",
+    "tooltip": "System tray"
+  },
+  {
+    "entryPoint": "Volume.qml",
+    "id": "user.volume",
+    "kind": "bar-widget",
+    "name": "Volume",
+    "origin": "builtin",
+    "section": "right",
+    "tooltip": "Volume - click to toggle mute"
+  },
+  {
+    "entryPoint": "Workspaces.qml",
+    "id": "user.workspaces",
+    "kind": "bar-widget",
+    "name": "Workspaces",
+    "origin": "builtin",
+    "section": "left",
+    "tooltip": "Workspace switcher"
+  },
+  {
+    "id": "ianswope.plex",
+    "kind": "bar-widget",
+    "name": "Plex",
+    "origin": "external"
+  },
+  {
+    "id": "io.github.ricky.screentime",
+    "name": "Screen Time",
+    "kind": "bar-widget",
+    "origin": "manual"
+  }
+]

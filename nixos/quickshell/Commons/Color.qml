@@ -20,8 +20,6 @@
 // behavior here, not a bug to fix.
 pragma Singleton
 import QtQuick
-import Quickshell
-import Quickshell.Io
 import "../" // shell root qmldir - exposes the Colors singleton, same
              // relative-import convention as quickshell/PluginRow.qml and
              // every file under quickshell/plugins/user.*/

@@ -208,6 +208,23 @@ in
         '';
       };
 
+      omarchy = {
+        description = "Omarchy CLI compat shim - only `plugin` is real here, forwards to quickshell/scripts/plugin.sh";
+        body = ''
+          if test (count $argv) -eq 0
+              echo "usage: omarchy plugin list|add|remove|enable|disable ..."
+              return 1
+          end
+          switch $argv[1]
+              case plugin
+                  $HOME/.config/quickshell/scripts/plugin.sh $argv[2..-1]
+              case '*'
+                  echo "omarchy: only 'plugin' is implemented in this shell - see quickshell/scripts/plugin.sh" >&2
+                  return 1
+          end
+        '';
+      };
+
       dev = {
         description = "Launch Zellij with dev layout in current dir";
         body = ''

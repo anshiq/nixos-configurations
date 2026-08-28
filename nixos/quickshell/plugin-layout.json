@@ -1,6 +1,11 @@
 {
-  "left": ["user.workspaces", "user.activeWindow"],
-  "center": ["user.clock"],
+  "left": [
+    "user.workspaces",
+    "user.activeWindow"
+  ],
+  "center": [
+    "user.clock"
+  ],
   "right": [
     "user.tray",
     "user.network",
@@ -11,6 +16,7 @@
     "user.screenshot",
     "user.record",
     "user.bluelight",
-    "user.power"
+    "user.power",
+    "io.github.ricky.screentime"
   ]
 }

@@ -18,6 +18,26 @@ PanelWindow {
     exclusiveZone: 18
     color: Colors.background
 
+    // Injected from shell.qml (`Bar { shell: shellRoot }`) - lets a widget
+    // reach `bar.shell.serviceFor(id)`, mirroring real Omarchy's Bar.qml/
+    // shell.qml contract. See qs.Ui's BarWidget.qml for the base type that
+    // reads `bar`/`vertical`/`barSize`/`moduleWidgets()`.
+    property var shell: null
+    readonly property bool vertical: false
+    readonly property int barSize: root.implicitHeight
+
+    // Every live widget instance across all three sections, keyed by
+    // moduleId - a widget id appears once (each id can only be enabled in
+    // one section/spot per plugin-layout.json), so broadcast() only ever
+    // needs to notify one instance here (unlike Omarchy's multi-monitor
+    // case, where the same widget id runs once per bar/screen).
+    property var moduleWidgetsMap: ({})
+
+    function moduleWidgets(moduleId) {
+        var item = moduleWidgetsMap[moduleId];
+        return item ? [item] : [];
+    }
+
     property var layout: ({
             "left": [],
             "center": [],
@@ -46,6 +66,7 @@ PanelWindow {
 
     PluginRow {
         ids: root.layout.left
+        bar: root
         anchors {
             left: parent.left
             top: parent.top
@@ -56,11 +77,13 @@ PanelWindow {
 
     PluginRow {
         ids: root.layout.center
+        bar: root
         anchors.centerIn: parent
     }
 
     PluginRow {
         ids: root.layout.right
+        bar: root
         anchors {
             right: parent.right
             top: parent.top
