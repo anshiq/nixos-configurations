@@ -1,0 +1,243 @@
+#!/usr/bin/env bash
+# The real `omarchy` CLI: a unified dispatcher over theming, fonts, and bar
+# plugins, in place of the old fish-only `omarchy plugin`-only shim (see
+# home.nix). Everything here either delegates straight to an existing script
+# (waybar/scripts/*.sh, quickshell/scripts/plugin.sh) or is small enough to
+# live inline (font management, below) - this is not a port of Omarchy's
+# 400-command bin/omarchy router, just the theming/plugin subset this
+# desktop actually has commands for. Extend the `commands_table`/case blocks
+# together when adding a new route.
+set -euo pipefail
+
+waybar_scripts="$HOME/.config/waybar/scripts"
+quickshell_scripts="$HOME/.config/quickshell/scripts"
+# ~/.config/fontconfig/conf.d, NOT fonts.conf: home-manager's fontconfig
+# module owns ~/.config/fontconfig/fonts.conf and conf.d/{10-hm-fonts,
+# 52-hm-default-fonts}.conf as symlinks into the Nix store (read-only) - see
+# font_set below for why conf.d/ itself is safe to add a plain file into.
+fontconfig_conf_d="$HOME/.config/fontconfig/conf.d"
+fontconfig_override="$fontconfig_conf_d/01-omarchy-font.conf"
+
+usage() {
+  cat <<'EOF'
+Omarchy command center (NixOS edition)
+
+Usage:
+  omarchy <group> <command> [args...]
+  omarchy commands
+
+Groups:
+  theme      list | current | set <name> | next | toggle
+  font       list | current | set <name>
+  plugin     list | add <url> [--enable] | remove <id> | enable <id> [left|center|right] | disable <id>
+  bluelight  status | toggle | adjust <+1|-1>
+  capture    screenshot
+  system     lock
+  power      menu
+
+Run 'omarchy commands' for a one-line summary of every route.
+EOF
+}
+
+commands_table() {
+  cat <<'EOF'
+theme list                 List available themes
+theme current               Show the active theme
+theme set <name>            Apply a theme
+theme next                  Cycle to the next theme
+theme toggle                 Flip between day/night
+font list                    List installed monospace fonts
+font current                  Show the active font
+font set <name>               Switch the system font (bar + terminals; restarts them)
+plugin list                    List bar-widget plugins (declarative + manual)
+plugin add <url> [--enable]     Clone and register a plugin (non-declarative)
+plugin remove <id>               Remove a manually-added plugin
+plugin enable <id> [section]      Turn a plugin on in a bar section
+plugin disable <id>                Turn a plugin off
+bluelight status                    Show the blue-light filter state
+bluelight toggle                     Toggle the blue-light filter
+bluelight adjust <+1|-1>              Nudge the saved color temperature
+capture screenshot                     Take a screenshot (flameshot)
+system lock                             Lock the screen
+power menu                               Open the power menu
+EOF
+}
+
+# ---- font management -------------------------------------------------
+#
+# Terminals (ghostty/kitty) and the bar (Quickshell) all reference the
+# generic "monospace" family rather than a literal font name (see
+# themes/generators.nix, desktop/home.nix's hyprlock settings, and
+# Bar.qml's fontFamily) specifically so this can repoint everything by
+# writing one fontconfig alias, instead of needing a rebuild per font.
+
+font_list() {
+  fc-list :spacing=mono family | sed 's/,.*//' | sort -u
+}
+
+font_current() {
+  local name=""
+  if [[ -f $fontconfig_override ]]; then
+    name=$(sed -n 's:.*<family>\(.*\)</family>.*:\1:p' "$fontconfig_override" | tail -n1)
+  fi
+  if [[ -n $name ]]; then
+    echo "$name"
+  else
+    echo "JetBrainsMono Nerd Font (system default - no override set)"
+  fi
+}
+
+font_set() {
+  local name="${1:-}"
+  if [[ -z $name ]]; then
+    echo "usage: omarchy font set <name>" >&2
+    return 1
+  fi
+  if [[ $name == *[\<\>\&]* ]]; then
+    echo "omarchy font set: name may not contain < > &" >&2
+    return 1
+  fi
+  if ! font_list | grep -qxF "$name"; then
+    echo "omarchy font set: no such monospace font: $name (see 'omarchy font list')" >&2
+    return 1
+  fi
+
+  # A plain file here (not fonts.conf itself, which home-manager owns - see
+  # fontconfig_conf_d above) is picked up because /etc/fonts/conf.d/
+  # 50-user.conf includes this whole directory. binding="strong" is load-
+  # order-independent, which matters here: 50-user.conf's include runs
+  # *before* /etc/fonts/conf.d/52-nixos-default-fonts.conf sets its own
+  # (same-bound) "monospace" alias, so a plain same/weak alias here would
+  # lose to that later, more-specific system default; strong always wins
+  # regardless of processing order.
+  mkdir -p "$fontconfig_conf_d"
+  cat > "$fontconfig_override" <<EOF
+<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<!-- Written by 'omarchy font set' - do not hand-edit, it is overwritten on
+     every run. Overrides the "monospace" generic family so the bar and
+     terminals (which reference "monospace", never a literal name) pick
+     this font up without a rebuild. -->
+<fontconfig>
+  <alias binding="strong">
+    <family>monospace</family>
+    <prefer><family>$name</family></prefer>
+  </alias>
+</fontconfig>
+EOF
+
+  fc-cache -f "$fontconfig_conf_d" > /dev/null 2>&1 || true
+
+  pkill -SIGUSR2 -x ghostty 2> /dev/null || true
+  pkill -SIGUSR1 -x kitty 2> /dev/null || true
+  if pgrep -x quickshell > /dev/null 2>&1; then
+    pkill -x quickshell 2> /dev/null || true
+    sleep 0.2
+    setsid -f quickshell > /dev/null 2>&1 || true
+  fi
+
+  echo "font set to $name (bar restarted; reopen terminals to pick it up)"
+}
+
+case "${1:-}" in
+  "" | --help | -h)
+    usage
+    ;;
+  commands)
+    commands_table
+    ;;
+  theme)
+    shift
+    case "${1:-}" in
+      list) cat "$waybar_scripts/themes.list" ;;
+      current) exec "$waybar_scripts/theme-status.sh" ;;
+      next) exec "$waybar_scripts/theme-switch.sh" next ;;
+      toggle) exec "$waybar_scripts/theme-switch.sh" toggle ;;
+      set)
+        shift
+        if [[ $# -lt 1 ]]; then
+          echo "usage: omarchy theme set <name>" >&2
+          exit 1
+        fi
+        exec "$waybar_scripts/theme-switch.sh" "$1"
+        ;;
+      *)
+        echo "usage: omarchy theme list|current|set <name>|next|toggle" >&2
+        exit 1
+        ;;
+    esac
+    ;;
+  font)
+    shift
+    case "${1:-}" in
+      list) font_list ;;
+      current) font_current ;;
+      set)
+        shift
+        font_set "${1:-}"
+        ;;
+      *)
+        echo "usage: omarchy font list|current|set <name>" >&2
+        exit 1
+        ;;
+    esac
+    ;;
+  plugin)
+    shift
+    exec "$quickshell_scripts/plugin.sh" "$@"
+    ;;
+  bluelight)
+    shift
+    case "${1:-}" in
+      status) exec "$waybar_scripts/bluelight-status.sh" ;;
+      toggle) exec "$waybar_scripts/bluelight-toggle.sh" ;;
+      adjust)
+        shift
+        if [[ $# -lt 1 ]]; then
+          echo "usage: omarchy bluelight adjust <+1|-1>" >&2
+          exit 1
+        fi
+        exec "$waybar_scripts/bluelight-adjust.sh" "$1"
+        ;;
+      *)
+        echo "usage: omarchy bluelight status|toggle|adjust <+1|-1>" >&2
+        exit 1
+        ;;
+    esac
+    ;;
+  capture)
+    shift
+    case "${1:-}" in
+      screenshot) exec "$waybar_scripts/screenshot.sh" ;;
+      *)
+        echo "usage: omarchy capture screenshot" >&2
+        exit 1
+        ;;
+    esac
+    ;;
+  system)
+    shift
+    case "${1:-}" in
+      lock) exec hyprlock ;;
+      *)
+        echo "usage: omarchy system lock" >&2
+        exit 1
+        ;;
+    esac
+    ;;
+  power)
+    shift
+    case "${1:-}" in
+      menu) exec "$waybar_scripts/power-menu.sh" ;;
+      *)
+        echo "usage: omarchy power menu" >&2
+        exit 1
+        ;;
+    esac
+    ;;
+  *)
+    echo "Unknown omarchy command: $1" >&2
+    usage >&2
+    exit 127
+    ;;
+esac

@@ -54,7 +54,11 @@ in
     cursor-color = ${hex t.cursor}
     cursor-style = block
     cursor-style-blink = false
-    font-family = JetBrainsMono Nerd Font
+    # "monospace" (not a literal family name) so `omarchy font set` - which
+    # writes a fontconfig alias for the generic family, see nixos/scripts/omarchy
+    # - can repoint every app at once without a rebuild. Restart ghostty
+    # (SIGUSR2, already sent by theme-switch.sh) to pick up a changed alias.
+    font-family = monospace
     font-size = 10
     font-style = Regular
     foreground = ${hex t.foreground}
@@ -73,7 +77,8 @@ in
   '';
 
   toKittyConfig = t: ''
-    font_family      JetBrainsMono Nerd Font
+    # "monospace" generic family, same reasoning as toGhosttyConfig above.
+    font_family      monospace
     font_size        10.0
 
     cursor_shape            block

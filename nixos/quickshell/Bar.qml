@@ -41,7 +41,11 @@ PanelWindow {
     readonly property color background: Colors.background
     readonly property color urgent: Colors.red
     readonly property color barForeground: foreground
-    readonly property string fontFamily: "JetBrainsMono Nerd Font"
+    // "monospace" generic family, resolved through fontconfig - so
+    // `omarchy font set` (nixos/scripts/omarchy) can repoint the bar via a
+    // fontconfig alias without a rebuild. Restart quickshell to pick up a
+    // changed alias (the omarchy command does this for you).
+    readonly property string fontFamily: "monospace"
     readonly property bool foregroundAnimationEnabled: true
 
     // Singleton-popup coordination (real Omarchy's requestPopout/
@@ -68,6 +72,18 @@ PanelWindow {
     // Omarchy's model (WidgetButton.onEntered/onExited call these
     // unconditionally). Same PopupWindow shape PluginRow.qml already uses
     // for manifest-declared tooltips, just bar-owned instead of per-plugin.
+    // tooltipTarget is deliberately never reset to null after its first
+    // assignment (see hideTooltip below) - Quickshell 0.3.0's
+    // PopupAnchor::setItem() segfaults (QQuickItem::window() on a stale
+    // pointer inside PopupAnchor::onItemWindowChanged()) when a PopupWindow's
+    // `anchor.item` binding writes null over a previously-real item. Confirmed
+    // from ~/.cache/quickshell/crashes/*/report.txt: 8 of the last 9 crashes
+    // on this machine are exactly this stack, triggered by any widget click
+    // that fires hideTooltip while hovered (screentime hits it hardest since
+    // its tooltip text - and therefore this binding - churns every few
+    // seconds). `visible` below now depends only on tooltipText, so the
+    // popup still hides correctly; `anchor.item` just keeps pointing at the
+    // last real item instead of ever going through null.
     property var tooltipTarget: null
     property string tooltipText: ""
     function showTooltip(item, text) {
@@ -76,7 +92,6 @@ PanelWindow {
     }
     function hideTooltip(item) {
         if (root.tooltipTarget === item) {
-            root.tooltipTarget = null;
             root.tooltipText = "";
         }
     }
@@ -175,7 +190,7 @@ PanelWindow {
     // live by widget hover state).
     PopupWindow {
         id: sharedTooltip
-        visible: root.tooltipTarget !== null && root.tooltipText.length > 0
+        visible: root.tooltipText.length > 0
         implicitWidth: sharedTooltipLabel.implicitWidth + 12
         implicitHeight: sharedTooltipLabel.implicitHeight + 8
         color: Colors.selection

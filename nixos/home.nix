@@ -96,6 +96,13 @@ in
 
     # awscli
     awscli2
+
+    # The real `omarchy` CLI (theme/font/plugin/bluelight/capture/system/
+    # power) - see scripts/omarchy. Replaces the old fish-only
+    # `omarchy plugin`-only shim; it delegates to waybar/scripts/*.sh and
+    # quickshell/scripts/plugin.sh, which are deployed separately below via
+    # xdg.configFile, so this just needs to be on PATH.
+    (pkgs.writeShellScriptBin "omarchy" (builtins.readFile ./scripts/omarchy))
   ];
 
   xdg.configFile."helix/config.toml".source = ./helix/config.toml;
@@ -205,23 +212,6 @@ in
           end
 
           rm -f -- "$tmp"
-        '';
-      };
-
-      omarchy = {
-        description = "Omarchy CLI compat shim - only `plugin` is real here, forwards to quickshell/scripts/plugin.sh";
-        body = ''
-          if test (count $argv) -eq 0
-              echo "usage: omarchy plugin list|add|remove|enable|disable ..."
-              return 1
-          end
-          switch $argv[1]
-              case plugin
-                  $HOME/.config/quickshell/scripts/plugin.sh $argv[2..-1]
-              case '*'
-                  echo "omarchy: only 'plugin' is implemented in this shell - see quickshell/scripts/plugin.sh" >&2
-                  return 1
-          end
         '';
       };
 

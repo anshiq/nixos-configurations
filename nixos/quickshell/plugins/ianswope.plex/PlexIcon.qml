@@ -1,0 +1,1 @@
+/nix/store/7bnc841wnvp1vr3i0xag1xrpicpfkg7b-source/PlexIcon.qml

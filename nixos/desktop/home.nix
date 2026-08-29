@@ -75,7 +75,9 @@ let
         monitor = "";
         dots_center = true;
         fade_on_empty = false;
-        font_family = "JetBrainsMono Nerd Font";
+        # "monospace" generic family so `omarchy font set` (nixos/scripts/omarchy)
+        # can repoint it via a fontconfig alias without a rebuild.
+        font_family = "monospace";
         font_color = "rgb(${c.foreground})";
         inner_color = "rgb(${c.darkBackground})";
         outer_color = "rgb(${c.accent})";
@@ -90,7 +92,9 @@ let
         text = "cmd[update:1000] echo \"$(date +'%H:%M')\"";
         color = "rgb(${c.brightForeground})";
         font_size = 72;
-        font_family = "JetBrainsMono Nerd Font";
+        # "monospace" generic family so `omarchy font set` (nixos/scripts/omarchy)
+        # can repoint it via a fontconfig alias without a rebuild.
+        font_family = "monospace";
         position = "0, 100";
         halign = "center";
         valign = "center";
