@@ -121,6 +121,17 @@ case "${1:-}" in
       exit 1
     }
 
+    # Strip the clone's own .git: left in place, it makes this path a
+    # nested repo (a git "gitlink"), which the parent repo can only track as
+    # an empty commit-pointer, not real files. Nix's flake evaluation reads
+    # plugin manifests through that same git-tracked source (see
+    # desktop/home.nix's builtinPluginDirs) - a gitlink there hides the
+    # real manifest.json from it entirely, breaking `nixos-rebuild switch`
+    # the next time this plugin's directory gets committed. Bit us twice
+    # already (screentime, then omarchy-google-search) before this line
+    # existed.
+    rm -rf "$clone_tmp/.git"
+
     target="$plugins_dir/$id"
     rm -rf "$target"
     mkdir -p "$plugins_dir"
