@@ -1,19 +1,19 @@
 {
   "left": [
-    "user.workspaces",
-    "user.activeWindow",
+    "omarchy.workspaces",
+    "omarchy.active-window",
     "io.github.sahzudin.omarchy-google-search"
   ],
   "center": [
-    "user.clock"
+    "omarchy.clock"
   ],
   "right": [
-    "user.tray",
-    "user.network",
-    "user.volume",
+    "omarchy.tray",
+    "omarchy.network",
+    "omarchy.audio",
     "user.cpu",
     "user.mem",
-    "user.battery",
+    "omarchy.power",
     "user.screenshot",
     "user.record",
     "user.bluelight",

@@ -6,6 +6,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.Commons
 
 PanelWindow {
     id: root
@@ -25,6 +26,11 @@ PanelWindow {
     property var shell: null
     readonly property bool vertical: false
     readonly property int barSize: root.implicitHeight
+    // Always top - matches the PanelWindow anchors above (left+right+top).
+    // Vendored qs.Ui widgets (e.g. PopupCard) branch on this for popup
+    // placement; real Omarchy supports all four edges, this shell only ever
+    // renders the top bar.
+    readonly property string position: "top"
 
     // The rest of real Omarchy's "bar chrome" contract - qs.Ui's
     // WidgetButton/Panel/BarIconButton (see quickshell/Ui/) call these
@@ -115,6 +121,14 @@ PanelWindow {
     }
     function switchPanelFrom(panel, direction) {
         return false;
+    }
+
+    // Real Omarchy's Bar.run() - vendored widgets (e.g. qs.Ui Workspaces)
+    // call `bar.run(shellCommand)` to dispatch hyprctl/etc without each
+    // widget needing its own Process item.
+    function run(command) {
+        if (!command) return;
+        Util.execDetached(command);
     }
 
     // Every live widget instance across all three sections, keyed by
