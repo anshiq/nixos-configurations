@@ -62,6 +62,143 @@ let
   terminal = "ghostty";
   browser = "google-chrome-stable";
 
+  # Real Omarchy ships `/usr/share/omarchy/bin/omarchy-clipboard-{paste-text,
+  # paste-file,open}` as first-class OS binaries; every action in the
+  # (manually plugin.sh-added) io.github.vuhuy.clipboard-manager bar
+  # plugin's Panel.qml shells out to them via `$OMARCHY_PATH/bin/...`
+  # (Panel.qml defaults OMARCHY_PATH to "/usr/share/omarchy", which doesn't
+  # exist here). This system has no such distro-level helpers, so this is
+  # a minimal stand-in: reads clipboard-history-sync.sh's
+  # clipboard-history.json by index, wl-copy's the entry, and - unless
+  # --copy-only - sends Shift+Insert via wtype so the paste also lands in
+  # the focused app (Shift+Insert works in both terminals and most GUI text
+  # fields, which is presumably why real Omarchy's own helper uses it too).
+  # `omarchy-clipboard-open`'s "open" has no real equivalent to replicate
+  # here, so it's approximated as: open with xdg-open if the entry is a
+  # URL or an image file, else just copy it.
+  omarchyClipboardShim = pkgs.symlinkJoin {
+    name = "omarchy-clipboard-shim";
+    paths = [
+      (pkgs.writeShellApplication {
+        name = "omarchy-clipboard-paste-text";
+        runtimeInputs = [
+          pkgs.jq
+          pkgs.wl-clipboard
+          pkgs.wtype
+        ];
+        text = ''
+          copy_only=false
+          shift_insert=false
+          history_index=""
+
+          while [ "$#" -gt 0 ]; do
+            case "$1" in
+              --copy-only)
+                copy_only=true
+                shift
+                ;;
+              --shift-insert)
+                shift_insert=true
+                shift
+                ;;
+              --history-index)
+                history_index="$2"
+                shift 2
+                ;;
+              *)
+                shift
+                ;;
+            esac
+          done
+
+          history_file="$HOME/.local/state/omarchy/clipboard-history.json"
+          [ -f "$history_file" ] || exit 0
+          [ -n "$history_index" ] || exit 0
+
+          text=$(jq -r --argjson i "$history_index" '.[$i].text // empty' "$history_file")
+          [ -n "$text" ] || exit 0
+
+          printf '%s' "$text" | wl-copy
+
+          if [ "$copy_only" = false ] && [ "$shift_insert" = true ]; then
+            sleep 0.15
+            wtype -M shift -k Insert -m shift
+          fi
+        '';
+      })
+      (pkgs.writeShellApplication {
+        name = "omarchy-clipboard-paste-file";
+        runtimeInputs = [
+          pkgs.wl-clipboard
+          pkgs.wtype
+        ];
+        text = ''
+          copy_only=false
+          if [ "''${1:-}" = "--copy-only" ]; then
+            copy_only=true
+            shift
+          fi
+
+          mime="''${1:-}"
+          path="''${2:-}"
+          [ -n "$mime" ] && [ -n "$path" ] || exit 0
+          [ -f "$path" ] || exit 0
+
+          wl-copy --type "$mime" < "$path"
+
+          if [ "$copy_only" = false ]; then
+            sleep 0.15
+            wtype -M shift -k Insert -m shift
+          fi
+        '';
+      })
+      (pkgs.writeShellApplication {
+        name = "omarchy-clipboard-open";
+        runtimeInputs = [
+          pkgs.jq
+          pkgs.wl-clipboard
+          pkgs.xdg-utils
+        ];
+        text = ''
+          history_index=""
+          while [ "$#" -gt 0 ]; do
+            case "$1" in
+              --history-index)
+                history_index="$2"
+                shift 2
+                ;;
+              *)
+                shift
+                ;;
+            esac
+          done
+
+          history_file="$HOME/.local/state/omarchy/clipboard-history.json"
+          [ -f "$history_file" ] || exit 0
+          [ -n "$history_index" ] || exit 0
+
+          entry_type=$(jq -r --argjson i "$history_index" '.[$i].type // empty' "$history_file")
+
+          if [ "$entry_type" = "image" ]; then
+            path=$(jq -r --argjson i "$history_index" '.[$i].path // empty' "$history_file")
+            [ -n "$path" ] && xdg-open "$path"
+          else
+            text=$(jq -r --argjson i "$history_index" '.[$i].text // empty' "$history_file")
+            [ -n "$text" ] || exit 0
+            case "$text" in
+              http://* | https://*)
+                xdg-open "$text"
+                ;;
+              *)
+                printf '%s' "$text" | wl-copy
+                ;;
+            esac
+          fi
+        '';
+      })
+    ];
+  };
+
   # Builds a hyprlock settings attrset from a theme (see ../themes/). One
   # static conf is rendered per theme below and flipped between by
   # theme-switch.sh at runtime, since programs.hyprlock only generates a
@@ -133,6 +270,7 @@ in
     slurp
     swaybg
     wl-clipboard
+    wtype
     xdg-utils
   ];
 
@@ -141,6 +279,11 @@ in
     TERMINAL = terminal;
     NIXOS_OZONE_WL = "1";
     ELECTRON_OZONE_PLATFORM_HINT = "auto";
+    # Points plugins/io.github.vuhuy.clipboard-manager/Panel.qml (and any
+    # other plugin expecting real Omarchy's distro-level helper binaries)
+    # at our stand-ins instead of its "/usr/share/omarchy" default - see
+    # omarchyClipboardShim above.
+    OMARCHY_PATH = "${omarchyClipboardShim}";
   };
 
   programs.ghostty = {
