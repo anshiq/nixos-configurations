@@ -12,6 +12,16 @@
 # topbar in between switches, but the next switch re-asserts the
 # kind-appropriate on/off state.
 #
+# Helix, yazi, and lazygit each get their active theme file repointed too
+# (same symlink-swap pattern as ghostty/kitty above): Helix's config.toml
+# always says `theme = "omarchy"`, so retargeting
+# helix/themes/omarchy.toml + a SIGUSR1 (Helix reloads config on that
+# signal, re-resolving the theme file with it) is enough to reskin a
+# running instance. yazi and lazygit have no reload signal, so their
+# symlink swap takes effect on next launch - both are normally launched as
+# short-lived subprocesses (from Helix's own keybinds, in lazygit's case),
+# so that's a non-issue in practice.
+#
 # Hyprland's border colors are Lua config (hyprland.lua) that also `dofile`s
 # a symlinked colors.lua at parse time (see there) - that static path keeps
 # a plain `hyprctl reload` correct without this script running, while this
@@ -41,12 +51,20 @@ schedule_file="$scripts_dir/schedule.list"
 ghostty_cfg="$HOME/.config/ghostty"
 kitty_cfg="$HOME/.config/kitty"
 hypr_cfg="$HOME/.config/hypr"
+helix_cfg="$HOME/.config/helix"
+yazi_cfg="$HOME/.config/yazi"
+lazygit_cfg="$HOME/.config/lazygit"
 # quickshell/ (unlike the directories above) is deployed as a single
 # whole-directory xdg.configFile symlink straight into the Nix store, so
 # ~/.config/quickshell itself is read-only - theme.json can't be written
 # there. It lives in state dir instead; Colors.qml watches it at this path.
 quickshell_cfg="$HOME/.config/quickshell"
 quickshell_state="$HOME/.local/state/quickshell"
+# Plain-text record of the active theme name, for anything that can't watch
+# a config-file symlink itself - currently the `zellij` fish function (see
+# home.nix), which reads this to launch new sessions on the right theme
+# since zellij has no live theme reload of its own.
+theme_state_dir="$HOME/.local/state/theme"
 
 current_theme() {
   local current
@@ -98,6 +116,12 @@ ln -sfn "$ghostty_cfg/config-$mode" "$ghostty_cfg/config"
 ln -sfn "$kitty_cfg/kitty-$mode.conf" "$kitty_cfg/kitty.conf"
 ln -sfn "$hypr_cfg/hyprlock-$mode.conf" "$hypr_cfg/hyprlock.conf"
 ln -sfn "$hypr_cfg/colors-$mode.lua" "$hypr_cfg/colors.lua"
+ln -sfn "$helix_cfg/themes/$mode.toml" "$helix_cfg/themes/omarchy.toml"
+ln -sfn "$yazi_cfg/theme-$mode.toml" "$yazi_cfg/theme.toml"
+ln -sfn "$lazygit_cfg/config-$mode.yml" "$lazygit_cfg/config.yml"
+
+mkdir -p "$theme_state_dir"
+echo "$mode" > "$theme_state_dir/current"
 
 # Quickshell's Colors.qml watches theme.json for live changes (see
 # quickshell/Colors.qml) - a real content copy rather than a symlink swap,
@@ -119,9 +143,13 @@ install -m 644 "$theme_json" "$quickshell_state/theme.json"
 # symlink target on its next run - no nudge needed for it. Hyprland's Lua
 # config is only re-read on `hyprctl reload`/restart, which is exactly what
 # the dofile("colors.lua") in hyprland.lua is for - no nudge needed there
-# either, the `hyprctl eval` below covers the live update instead.
+# either, the `hyprctl eval` below covers the live update instead. Helix
+# reloads its config (and thus re-resolves omarchy.toml) on SIGUSR1; yazi
+# and lazygit have no such signal (see file header) so they're left to pick
+# up the new symlink on their next launch.
 pkill -SIGUSR2 -x ghostty 2>/dev/null || true
 pkill -SIGUSR1 -x kitty 2>/dev/null || true
+pkill -SIGUSR1 -x hx 2>/dev/null || true
 
 # Pull the border colors out of the same theme.json we just installed (see
 # themes/generators.nix's toQuickshellTheme - it carries borderActive1/2/

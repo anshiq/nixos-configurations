@@ -412,6 +412,9 @@ in
           "source"
         ];
       };
+      "helix/themes/${name}.toml".text = gen.toHelixTheme theme;
+      "yazi/theme-${name}.toml".text = gen.toYaziTheme theme;
+      "lazygit/config-${name}.yml".text = gen.toLazygitTheme theme;
     }) themes)
     // {
       # theme-switch.sh's own view of what themes exist: one name per line

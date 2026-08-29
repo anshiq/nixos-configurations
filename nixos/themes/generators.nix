@@ -1,8 +1,8 @@
 # Pure functions rendering one theme attrset (see ./default.nix) into every
 # consumer's own file format. This is the one place that needs to grow if a
 # future theme has to feed a new app - every existing consumer (ghostty,
-# kitty, Quickshell, Hyprland borders, zellij) goes through here instead of
-# hand-duplicating hex codes in its own config file.
+# kitty, Quickshell, Hyprland borders, zellij, Helix, yazi, lazygit) goes
+# through here instead of hand-duplicating hex codes in its own config file.
 { lib }:
 let
   hex = c: "#${c}";
@@ -143,4 +143,143 @@ in
     white = hex t.brightForeground;
     orange = hex t.accent;
   };
+
+  # Full Helix `theme.toml`, staged per-theme at helix/themes/<name>.toml.
+  # helix/config.toml itself always says `theme = "omarchy"`; theme-switch.sh
+  # symlinks helix/themes/omarchy.toml at whichever variant is active and
+  # sends Helix SIGUSR1, which reloads config (and thus re-resolves the
+  # theme file) without a restart.
+  toHelixTheme = t: ''
+    "ui.background" = { bg = "${hex t.background}" }
+    "ui.text" = "${hex t.foreground}"
+    "ui.text.focus" = { fg = "${hex t.brightForeground}", modifiers = ["bold"] }
+    "ui.cursor.primary" = { fg = "${hex t.background}", bg = "${hex t.cursor}" }
+    "ui.cursor.match" = { fg = "${hex t.accent}", modifiers = ["underlined"] }
+    "ui.selection" = { bg = "${hex t.selection}" }
+    "ui.selection.primary" = { bg = "${hex t.selection}" }
+    "ui.cursorline.primary" = { bg = "${hex t.selection}" }
+    "ui.linenr" = { fg = "${hex t.muted}" }
+    "ui.linenr.selected" = { fg = "${hex t.accent}", modifiers = ["bold"] }
+    "ui.statusline" = { fg = "${hex t.foreground}", bg = "${hex t.darkBackground}" }
+    "ui.statusline.inactive" = { fg = "${hex t.muted}", bg = "${hex t.darkBackground}" }
+    "ui.bufferline" = { fg = "${hex t.muted}", bg = "${hex t.darkBackground}" }
+    "ui.bufferline.active" = { fg = "${hex t.background}", bg = "${hex t.accent}", modifiers = ["bold"] }
+    "ui.popup" = { fg = "${hex t.foreground}", bg = "${hex t.darkBackground}" }
+    "ui.window" = { fg = "${hex t.muted}" }
+    "ui.help" = { fg = "${hex t.foreground}", bg = "${hex t.darkBackground}" }
+    "ui.menu" = { fg = "${hex t.foreground}", bg = "${hex t.darkBackground}" }
+    "ui.menu.selected" = { fg = "${hex t.background}", bg = "${hex t.accent}" }
+    "ui.virtual.ruler" = { bg = "${hex t.muted}" }
+    "ui.virtual.whitespace" = "${hex t.muted}"
+    "ui.virtual.indent-guide" = "${hex t.muted}"
+    "warning" = "${hex t.yellow}"
+    "error" = "${hex t.red}"
+    "info" = "${hex t.blue}"
+    "hint" = "${hex t.cyan}"
+    "diagnostic.error" = { underline = { color = "${hex t.red}", style = "curl" } }
+    "diagnostic.warning" = { underline = { color = "${hex t.yellow}", style = "curl" } }
+    "diagnostic.info" = { underline = { color = "${hex t.blue}", style = "curl" } }
+    "diagnostic.hint" = { underline = { color = "${hex t.cyan}", style = "curl" } }
+    "keyword" = "${hex t.magenta}"
+    "keyword.control" = "${hex t.magenta}"
+    "function" = "${hex t.blue}"
+    "function.builtin" = "${hex t.blue}"
+    "function.macro" = "${hex t.cyan}"
+    "string" = "${hex t.green}"
+    "string.special" = "${hex t.cyan}"
+    "comment" = { fg = "${hex t.muted}", modifiers = ["italic"] }
+    "constant" = "${hex t.accent}"
+    "constant.numeric" = "${hex t.accent}"
+    "constant.builtin" = "${hex t.accent}"
+    "variable" = "${hex t.foreground}"
+    "variable.parameter" = "${hex t.foreground}"
+    "variable.builtin" = "${hex t.red}"
+    "variable.other.member" = "${hex t.foreground}"
+    "type" = "${hex t.cyan}"
+    "type.builtin" = "${hex t.cyan}"
+    "attribute" = "${hex t.yellow}"
+    "tag" = "${hex t.red}"
+    "namespace" = "${hex t.cyan}"
+    "operator" = "${hex t.foreground}"
+    "punctuation" = "${hex t.muted}"
+    "punctuation.bracket" = "${hex t.foreground}"
+    "punctuation.delimiter" = "${hex t.foreground}"
+    "markup.heading" = { fg = "${hex t.blue}", modifiers = ["bold"] }
+    "markup.bold" = { modifiers = ["bold"] }
+    "markup.italic" = { modifiers = ["italic"] }
+    "markup.link.url" = { fg = "${hex t.cyan}", modifiers = ["underlined"] }
+    "markup.raw" = "${hex t.green}"
+    "diff.plus" = "${hex t.green}"
+    "diff.minus" = "${hex t.red}"
+    "diff.delta" = "${hex t.yellow}"
+  '';
+
+  # yazi's theme.toml, staged per-theme at yazi/theme-<name>.toml.
+  # theme-switch.sh symlinks yazi/theme.toml at whichever variant is
+  # active (yazi has no reload signal, so this takes effect on next launch).
+  toYaziTheme = t: ''
+    [manager]
+    cwd = { fg = "${hex t.blue}" }
+    hovered = { fg = "${hex t.background}", bg = "${hex t.accent}" }
+    preview_hovered = { underline = true }
+    find_keyword = { fg = "${hex t.accent}", bold = true, italic = true }
+    find_position = { fg = "${hex t.yellow}", bg = "reset", bold = true, italic = true }
+    marker_selected = { fg = "${hex t.green}", bg = "${hex t.selection}" }
+    marker_copied = { fg = "${hex t.yellow}", bg = "${hex t.selection}" }
+    marker_cut = { fg = "${hex t.red}", bg = "${hex t.selection}" }
+    marker_marked = { fg = "${hex t.accent}", bg = "${hex t.selection}" }
+    border_symbol = "│"
+    border_style = { fg = "${hex t.muted}" }
+
+    [status]
+    separator_open  = ""
+    separator_close = ""
+    separator_style = { fg = "${hex t.muted}", bg = "${hex t.muted}" }
+    mode_normal = { fg = "${hex t.background}", bg = "${hex t.accent}", bold = true }
+    mode_select = { fg = "${hex t.background}", bg = "${hex t.green}", bold = true }
+    mode_unset = { fg = "${hex t.background}", bg = "${hex t.yellow}", bold = true }
+    progress_label = { fg = "${hex t.foreground}" }
+    progress_normal = { fg = "${hex t.accent}", bg = "${hex t.muted}" }
+    progress_error = { fg = "${hex t.red}", bg = "${hex t.muted}" }
+    permissions_t = { fg = "${hex t.green}" }
+    permissions_r = { fg = "${hex t.yellow}" }
+    permissions_w = { fg = "${hex t.red}" }
+    permissions_x = { fg = "${hex t.cyan}" }
+    permissions_s = { fg = "${hex t.muted}" }
+
+    [tabs]
+    active = { fg = "${hex t.background}", bg = "${hex t.accent}", bold = true }
+    inactive = { fg = "${hex t.muted}", bg = "${hex t.darkBackground}" }
+  '';
+
+  # lazygit's `gui.theme` block, staged per-theme at lazygit/config-<name>.yml.
+  # theme-switch.sh symlinks lazygit/config.yml at whichever variant is
+  # active (lazygit has no reload signal, but it's a short-lived subprocess
+  # launched fresh each time, so this is a non-issue in practice).
+  toLazygitTheme = t: ''
+    gui:
+      theme:
+        activeBorderColor:
+          - "${hex t.accent}"
+          - bold
+        inactiveBorderColor:
+          - "${hex t.muted}"
+        searchingActiveBorderColor:
+          - "${hex t.yellow}"
+          - bold
+        optionsTextColor:
+          - "${hex t.accent}"
+        selectedLineBgColor:
+          - "${hex t.selection}"
+        selectedRangeBgColor:
+          - "${hex t.selection}"
+        cherryPickedCommitBgColor:
+          - "${hex t.muted}"
+        cherryPickedCommitFgColor:
+          - "${hex t.accent}"
+        unstagedChangesColor:
+          - "${hex t.red}"
+        defaultFgColor:
+          - "${hex t.foreground}"
+  '';
 }

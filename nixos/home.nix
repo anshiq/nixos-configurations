@@ -223,12 +223,17 @@ in
       };
 
       zellij = {
-        description = "Wraps the real zellij to pick day/sunset theme by time of day";
+        description = "Wraps the real zellij to launch with the desktop's active theme";
         body = ''
-          set -l hour (date +%-H)
-          set -l theme sunset-night
-          if test $hour -ge 6; and test $hour -lt 17
-              set theme tokyo-night
+          # theme-switch.sh (../waybar/scripts/theme-switch.sh) writes the
+          # currently active theme name here on every switch - reading it
+          # back (instead of guessing from wall-clock hour, the old
+          # behaviour) means zellij always agrees with ghostty/kitty/the bar,
+          # even after a theme was picked manually rather than by schedule.
+          set -l theme_file "$HOME/.local/state/theme/current"
+          set -l theme tokyo-night
+          if test -r $theme_file
+              set theme (cat $theme_file)
           end
 
           # zellij 0.44 has no top-level --theme flag; overriding it means
@@ -323,11 +328,13 @@ in
       # Rendered from the shared theme definitions in ./themes/ (see
       # themes/generators.nix's toZellijTheme) instead of a hand-copied
       # palette - keeps this in sync with ghostty/kitty/hyprlock/Quickshell
-      # automatically. zellij has no live theme reload, so all themes still
-      # live in the same config.kdl; the `zellij` fish function below picks
-      # which one to launch with via `--theme`, based on time of day.
-      themes.tokyo-night = themeGen.toZellijTheme themes.tokyo-night;
-      themes.sunset-night = themeGen.toZellijTheme themes.sunset-night;
+      # automatically, and now covers every theme (not just 2), so adding a
+      # theme under ./themes/ needs no change here. zellij has no live
+      # theme reload, so all themes still live in the same config.kdl; the
+      # `zellij` fish function below picks which one to launch with via
+      # `--theme`, reading the desktop's actual active theme (written by
+      # theme-switch.sh) instead of guessing from wall-clock time.
+      themes = lib.mapAttrs (name: theme: themeGen.toZellijTheme theme) themes;
 
       web_client.font = "JetBrainsMono Nerd Font";
     };
@@ -447,7 +454,9 @@ in
 
     settings = lib.importTOML ./yazi/yazi.toml;
     keymap = lib.importTOML ./yazi/keymap.toml;
-    theme = lib.importTOML ./yazi/theme.toml;
+    # theme.toml is NOT set here: it is a runtime symlink flipped between
+    # per-theme variants (desktop/home.nix's themeGen.toYaziTheme) by
+    # theme-switch.sh, same pattern as ghostty/kitty - see ../desktop/home.nix.
 
     plugins = {
       git = pkgs.yaziPlugins.git;
