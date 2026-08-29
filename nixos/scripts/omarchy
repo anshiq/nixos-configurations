@@ -34,6 +34,7 @@ Groups:
   capture    screenshot
   system     lock
   power      menu
+  launch     browser <url>
 
 Run 'omarchy commands' for a one-line summary of every route.
 EOF
@@ -60,6 +61,7 @@ bluelight adjust <+1|-1>              Nudge the saved color temperature
 capture screenshot                     Take a screenshot (flameshot)
 system lock                             Lock the screen
 power menu                               Open the power menu
+launch browser <url>                     Open a URL in the default browser
 EOF
 }
 
@@ -231,6 +233,28 @@ case "${1:-}" in
       menu) exec "$waybar_scripts/power-menu.sh" ;;
       *)
         echo "usage: omarchy power menu" >&2
+        exit 1
+        ;;
+    esac
+    ;;
+  launch)
+    shift
+    case "${1:-}" in
+      browser)
+        shift
+        if [[ $# -lt 1 ]]; then
+          echo "usage: omarchy launch browser <url>" >&2
+          exit 1
+        fi
+        # xdg-open, not a hardcoded browser binary, so it honors whatever
+        # xdg.mimeApps.defaultApplications (desktop/home.nix) has set as the
+        # default browser - same contract real Omarchy plugins assume when
+        # they shell out to `omarchy launch browser <url>` (see e.g. the
+        # web-search plugin's Panel.qml).
+        exec xdg-open "$1"
+        ;;
+      *)
+        echo "usage: omarchy launch browser <url>" >&2
         exit 1
         ;;
     esac
