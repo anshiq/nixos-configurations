@@ -40,6 +40,21 @@ Run 'omarchy commands' for a one-line summary of every route.
 EOF
 }
 
+# Plugins invoke `omarchy <group> <action>` via Quickshell.execDetached,
+# which throws the exit code away - a typo'd or unimplemented action (see
+# the web-search plugin's `omarchy launch browser` before that route
+# existed) used to fail completely silently from the plugin author's and
+# user's point of view. Every error path below now also raises a desktop
+# notification, not just stderr, so "nothing happened" always has a visible
+# cause. Takes the original full invocation (captured as $full_invocation
+# before any `shift`) plus a usage line for this specific group/action.
+fail() {
+  local usage_line="$1"
+  echo "$usage_line" >&2
+  notify-send -u normal "Omarchy" "No such action: $full_invocation" 2> /dev/null || true
+  exit 127
+}
+
 commands_table() {
   cat <<'EOF'
 theme list                 List available themes
@@ -141,6 +156,8 @@ EOF
   echo "font set to $name (bar restarted; reopen terminals to pick it up)"
 }
 
+full_invocation="omarchy $*"
+
 case "${1:-}" in
   "" | --help | -h)
     usage
@@ -158,14 +175,12 @@ case "${1:-}" in
       set)
         shift
         if [[ $# -lt 1 ]]; then
-          echo "usage: omarchy theme set <name>" >&2
-          exit 1
+          fail "usage: omarchy theme set <name>"
         fi
         exec "$waybar_scripts/theme-switch.sh" "$1"
         ;;
       *)
-        echo "usage: omarchy theme list|current|set <name>|next|toggle" >&2
-        exit 1
+        fail "usage: omarchy theme list|current|set <name>|next|toggle"
         ;;
     esac
     ;;
@@ -179,8 +194,7 @@ case "${1:-}" in
         font_set "${1:-}"
         ;;
       *)
-        echo "usage: omarchy font list|current|set <name>" >&2
-        exit 1
+        fail "usage: omarchy font list|current|set <name>"
         ;;
     esac
     ;;
@@ -196,14 +210,12 @@ case "${1:-}" in
       adjust)
         shift
         if [[ $# -lt 1 ]]; then
-          echo "usage: omarchy bluelight adjust <+1|-1>" >&2
-          exit 1
+          fail "usage: omarchy bluelight adjust <+1|-1>"
         fi
         exec "$waybar_scripts/bluelight-adjust.sh" "$1"
         ;;
       *)
-        echo "usage: omarchy bluelight status|toggle|adjust <+1|-1>" >&2
-        exit 1
+        fail "usage: omarchy bluelight status|toggle|adjust <+1|-1>"
         ;;
     esac
     ;;
@@ -212,8 +224,7 @@ case "${1:-}" in
     case "${1:-}" in
       screenshot) exec "$waybar_scripts/screenshot.sh" ;;
       *)
-        echo "usage: omarchy capture screenshot" >&2
-        exit 1
+        fail "usage: omarchy capture screenshot"
         ;;
     esac
     ;;
@@ -222,8 +233,7 @@ case "${1:-}" in
     case "${1:-}" in
       lock) exec hyprlock ;;
       *)
-        echo "usage: omarchy system lock" >&2
-        exit 1
+        fail "usage: omarchy system lock"
         ;;
     esac
     ;;
@@ -232,8 +242,7 @@ case "${1:-}" in
     case "${1:-}" in
       menu) exec "$waybar_scripts/power-menu.sh" ;;
       *)
-        echo "usage: omarchy power menu" >&2
-        exit 1
+        fail "usage: omarchy power menu"
         ;;
     esac
     ;;
@@ -243,8 +252,7 @@ case "${1:-}" in
       browser)
         shift
         if [[ $# -lt 1 ]]; then
-          echo "usage: omarchy launch browser <url>" >&2
-          exit 1
+          fail "usage: omarchy launch browser <url>"
         fi
         # xdg-open, not a hardcoded browser binary, so it honors whatever
         # xdg.mimeApps.defaultApplications (desktop/home.nix) has set as the
@@ -254,14 +262,11 @@ case "${1:-}" in
         exec xdg-open "$1"
         ;;
       *)
-        echo "usage: omarchy launch browser <url>" >&2
-        exit 1
+        fail "usage: omarchy launch browser <url>"
         ;;
     esac
     ;;
   *)
-    echo "Unknown omarchy command: $1" >&2
-    usage >&2
-    exit 127
+    fail "Unknown omarchy command: ${1:-}. Run 'omarchy commands' to see what exists."
     ;;
 esac
