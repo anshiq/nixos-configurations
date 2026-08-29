@@ -9,6 +9,11 @@
 let
   themes = import ./themes;
   themeGen = import ./themes/generators.nix { inherit lib; };
+  # Only used below to pick a non-stale static fallback theme (see
+  # settings.theme and the `zellij` fish function) - the real runtime
+  # switching still goes through theme-switch.sh, same as everywhere else.
+  schedule = import ./themes/schedule.nix;
+  fallbackTheme = (builtins.head schedule).theme;
 in
 {
   imports = [ ./desktop/home.nix ];
@@ -231,7 +236,7 @@ in
           # behaviour) means zellij always agrees with ghostty/kitty/the bar,
           # even after a theme was picked manually rather than by schedule.
           set -l theme_file "$HOME/.local/state/theme/current"
-          set -l theme tokyo-night
+          set -l theme ${fallbackTheme}
           if test -r $theme_file
               set theme (cat $theme_file)
           end
@@ -294,7 +299,14 @@ in
     enableFishIntegration = true; # you launch zellij manually / via `dev`, not on every shell start
 
     settings = {
-      theme = "tokyo-night";
+      # Static default only - never live-reloaded (zellij has no reload
+      # signal for this). Derived from schedule.nix's first entry instead of
+      # a hand-picked name so it can't go stale again the way the old
+      # hardcoded "tokyo-night" did after that theme was removed. Any
+      # session started through the `zellij` fish function below overrides
+      # this with the desktop's actual active theme; this default only
+      # matters for a session started some other way.
+      theme = fallbackTheme;
       default_shell = "fish";
       default_layout = "compact";
       mouse_mode = true;

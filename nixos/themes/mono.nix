@@ -1,6 +1,6 @@
 {
   name = "mono";
-  kind = "night"; # worn 05:00-07:00, before sunrise
+  kind = "day"; # worn 09:00-15:00, full daylight - hyprsunset stays off
 
   background = "0d0d0d";
   darkBackground = "000000";

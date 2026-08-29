@@ -251,6 +251,23 @@ in
     active = { fg = "${hex t.background}", bg = "${hex t.accent}", bold = true }
     inactive = { fg = "${hex t.muted}", bg = "${hex t.darkBackground}" }
 
+    # yazi's icon GLYPH color is a completely separate table from
+    # [filetype] below - it has its own built-in `conds` rules
+    # (`{ if = "dir", fg = "#03a9f4" }`, hardcoded blue) that color the icon
+    # independently of whatever [filetype] says about the filename text, so
+    # overriding [filetype] alone leaves every folder icon blue regardless
+    # of theme. `prepend_conds` runs before those built-ins (first match
+    # wins), so these four rules - covering directories (plain and
+    # hovered), executables, and everything else - fully shadow them with
+    # the active theme's own colors instead.
+    [icon]
+    prepend_conds = [
+      { if = "dir & hovered", text = "", fg = "${hex t.blue}" },
+      { if = "dir", text = "", fg = "${hex t.blue}" },
+      { if = "exec", text = "", fg = "${hex t.green}" },
+      { if = "!dir", text = "", fg = "${hex t.foreground}" },
+    ]
+
     # yazi ships its own built-in filetype rules (directories hardcoded to
     # literal "blue", regardless of any [manager]/[status] overrides above)
     # - these override that default with the active theme's own colors, so

@@ -1,6 +1,7 @@
 {
   name = "sunset-night";
-  kind = "night";
+  kind = "night"; # worn 15:00-04:00 - owns the hyprsunset warmth ramp,
+                  # see waybar/scripts/theme-warmth-ramp.sh
 
   background = "1e1512";
   darkBackground = "140d09";

@@ -1,6 +1,6 @@
 {
   name = "forest-green";
-  kind = "day"; # worn 07:00-09:00
+  kind = "day"; # worn 06:00-09:00
 
   background = "141b16";
   darkBackground = "0e120f";

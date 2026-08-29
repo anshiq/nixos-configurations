@@ -87,11 +87,11 @@ end)
 local colorsOk, colors = pcall(dofile, os.getenv("HOME") .. "/.config/hypr/colors.lua")
 if not colorsOk then
   -- First run before theme-switch.sh has ever created the symlink (or the
-  -- symlink is broken) - fall back to the tokyo-night values so the config
-  -- still parses.
+  -- symlink is broken) - fall back to mono's values so the config still
+  -- parses.
   colors = {
-    active = { colors = { "rgba(7aa2f7ee)", "rgba(bb9af7ee)" }, angle = 45 },
-    inactive = "rgba(414868aa)",
+    active = { colors = { "rgba(aaaaaaee)", "rgba(888888ee)" }, angle = 45 },
+    inactive = "rgba(333333aa)",
   }
 end
 

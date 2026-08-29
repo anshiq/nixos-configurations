@@ -177,6 +177,15 @@ bluelight_state="$HOME/.cache/waybar-bluelight-temp"
 bluelight_default_temp=4000
 mkdir -p "$(dirname "$bluelight_state")"
 [ -f "$bluelight_state" ] || echo "$bluelight_default_temp" > "$bluelight_state"
+# sunset-night owns a time-based warmth ramp (see theme-warmth-ramp.sh):
+# minimal warmth at 15:00 rising to maximum by 18:00, then held through the
+# rest of the night (including the following black-white window). Reset to
+# the ramp's starting point on every fresh entry into sunset-night, so a
+# previous night's maxed-out warmth - or a manual scroll tweak - doesn't
+# leak into the next day's start; the ramp timer takes it from here.
+if [ "$mode" = "sunset-night" ]; then
+  echo 6500 > "$bluelight_state"
+fi
 bluelight_temp=$(cat "$bluelight_state")
 
 if [ "$kind" = "night" ]; then

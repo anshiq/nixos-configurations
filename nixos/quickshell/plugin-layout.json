@@ -17,6 +17,7 @@
     "user.screenshot",
     "user.record",
     "user.bluelight",
+    "user.themeWizard",
     "user.power",
     "io.github.alexdont.battery-limiter",
     "io.github.vuhuy.clipboard-manager"

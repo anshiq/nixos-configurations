@@ -15,6 +15,43 @@ let
   gen = import ../themes/generators.nix { inherit lib; };
   schedule = import ../themes/schedule.nix;
 
+  # Papirus-Dark's own folders are hardcoded blue (`folder.svg` etc. bake
+  # in #1d99f3-ish blue directly, independent of every terminal-app theme
+  # generated above - GTK apps never touch ../themes/ at all) - this is the
+  # one remaining system-wide blue surface once yazi's icon table (see
+  # ../themes/generators.nix's toYaziTheme) was fixed. Papirus itself ships
+  # every color as a `folder-<color>-*.svg` set (see `folder-white-*.svg`
+  # etc under any size dir); `papirus-folders` is the upstream tool that
+  # swaps the default folder icons for one of those - run once here, at
+  # build time inside the Nix sandbox, on a writable copy (the fetched
+  # theme itself is read-only in the store), rather than mutating anything
+  # at runtime. "white" was the same choice already made for yazi.
+  papirusNoBlue = pkgs.runCommand "papirus-dark-no-blue" {
+    nativeBuildInputs = [
+      pkgs.papirus-folders
+      pkgs.gtk3
+    ];
+  } ''
+    mkdir -p $out/share/icons
+    # Papirus-Dark's own folder.svg is a *symlink* into the sibling
+    # Papirus (light) theme at some sizes - folders are shared between the
+    # two variants, only genuinely dark-specific icons differ. Copying
+    # Papirus-Dark alone leaves that symlink dangling, which makes `[ -w
+    # folder.svg ]` false and sends papirus-folders down its sudo-reexec
+    # path (fine interactively, fatal in this sandbox with no sudo/tty) -
+    # copying both keeps every such symlink resolvable.
+    cp -r ${pkgs.papirus-icon-theme}/share/icons/Papirus $out/share/icons/Papirus
+    cp -r ${pkgs.papirus-icon-theme}/share/icons/Papirus-Dark $out/share/icons/Papirus-Dark
+    chmod -R u+w $out/share/icons/Papirus $out/share/icons/Papirus-Dark
+    # papirus-folders takes a theme *name*, not a path - it resolves it by
+    # searching $XDG_DATA_DIRS/icons/<name>/index.theme (see its
+    # get_theme_dir()), so point that search at our copy instead of trying
+    # to hand it $out directly.
+    HOME="$TMPDIR" XDG_DATA_DIRS="$out/share" \
+      papirus-folders -o -t Papirus-Dark -C white
+    gtk-update-icon-cache -f -t "$out/share/icons/Papirus-Dark"
+  '';
+
   # Third-party bar-widget plugins - see ../plugins/default.nix. Read
   # directly (not via IFD on the fetched `src`s - see the activation script
   # below for why) so evaluating this file never needs network access or a
@@ -373,6 +410,10 @@ in
         source = ../waybar/scripts/theme-status.sh;
         executable = true;
       };
+      "waybar/scripts/theme-warmth-ramp.sh" = {
+        source = ../waybar/scripts/theme-warmth-ramp.sh;
+        executable = true;
+      };
       "waybar/scripts/idle-unless-charging.sh" = {
         source = ../waybar/scripts/idle-unless-charging.sh;
         executable = true;
@@ -590,6 +631,16 @@ in
           RestartSec = "10";
         };
       };
+      # Nudges hyprsunset's warmth forward during sunset-night's 15:00-18:00
+      # ramp window (see waybar/scripts/theme-warmth-ramp.sh) - a no-op the
+      # rest of the day, so the timer below just runs it continuously.
+      theme-warmth-ramp = {
+        Unit.Description = "Ramp hyprsunset warmth during sunset-night's opening hours";
+        Service = {
+          Type = "oneshot";
+          ExecStart = "%h/.config/waybar/scripts/theme-warmth-ramp.sh";
+        };
+      };
     }
     # One timer+service pair per ../themes/schedule.nix entry - applies to
     # ghostty, kitty, hyprlock, Quickshell (bar/launcher/notifications), and
@@ -619,6 +670,14 @@ in
         Timer = {
           OnBootSec = "1m";
           OnUnitActiveSec = "1m";
+        };
+        Install.WantedBy = [ "timers.target" ];
+      };
+      theme-warmth-ramp = {
+        Unit.Description = "Check the hyprsunset warmth ramp every 10 minutes";
+        Timer = {
+          OnBootSec = "1m";
+          OnUnitActiveSec = "10m";
         };
         Install.WantedBy = [ "timers.target" ];
       };
@@ -674,7 +733,9 @@ in
     };
     iconTheme = {
       name = "Papirus-Dark";
-      package = pkgs.papirus-icon-theme;
+      # Recolored folders (see papirusNoBlue above) - everything else in
+      # the theme is untouched.
+      package = papirusNoBlue;
     };
     cursorTheme = {
       name = "Bibata-Modern-Ice";
@@ -685,6 +746,22 @@ in
       name = "Noto Sans";
       size = 10;
     };
+    # Adwaita/Adwaita-dark's own stylesheet hardcodes blue for selections,
+    # focus rings, links, and checked controls (`@theme_selected_bg_color:
+    # #3584e4` etc.) - independent of both the terminal-app theme system
+    # above and papirusNoBlue's icon recolor, since it's GTK3's own named
+    # colors, not an icon or a generated app config. Redefining them here
+    # re-themes every GTK3 app (pavucontrol, nm-connection-editor,
+    # blueman-manager, thunar, ...) without switching off Adwaita-dark
+    # itself. GTK cascades `@define-color` by last-defined-wins, so these
+    # override the theme's own definitions as long as this file loads after
+    # it - home-manager appends gtk.css after the theme import.
+    gtk3.extraCss = ''
+      @define-color theme_selected_bg_color #6b6b6b;
+      @define-color theme_selected_fg_color #ffffff;
+      @define-color link_color #cccccc;
+      @define-color visited_link_color #999999;
+    '';
   };
 
   # Let GUI applications find SSH/GPG credentials through the session keyring.

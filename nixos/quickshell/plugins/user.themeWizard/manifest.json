@@ -1,0 +1,11 @@
+{
+  "id": "user.themeWizard",
+  "name": "Theme Wizard",
+  "kinds": ["bar-widget", "overlay"],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml",
+    "overlay": "Overlay.qml"
+  },
+  "section": "right",
+  "tooltip": "Theme wizard - pick a theme, or check/override the day-night schedule"
+}
