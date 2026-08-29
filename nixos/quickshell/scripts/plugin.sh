@@ -73,11 +73,20 @@ generate_plugin_qmldir() {
 }
 
 register_manual_plugin() {
-  local id="$1" name="$2"
-  local tmp
+  local id="$1" name="$2" manifest="$3"
+  local kind tmp
+  # A multi-kind plugin (service/bar-widget/overlay) reports its primary
+  # kind here for `plugin.sh list`'s display - "bar-widget" whenever it has
+  # one (the thing that actually shows up on the bar), else the first kind
+  # declared. Functionality never depends on this: shell.qml and Service/
+  # Overlay loading both read kinds straight from manifest.json.
+  kind=$(jq -r '
+    (.kinds // (if .kind then [.kind] else [] end)) as $k
+    | if ($k | index("bar-widget")) then "bar-widget" else ($k[0] // "bar-widget") end
+  ' "$manifest")
   tmp=$(mktemp)
-  jq --arg id "$id" --arg name "$name" '
-    (map(select(.id != $id))) + [{id: $id, name: $name, kind: "bar-widget", origin: "manual"}]
+  jq --arg id "$id" --arg name "$name" --arg kind "$kind" '
+    (map(select(.id != $id))) + [{id: $id, name: $name, kind: $kind, origin: "manual"}]
   ' "$registry_file" > "$tmp"
   mv "$tmp" "$registry_file"
 }
@@ -139,7 +148,7 @@ case "${1:-}" in
     trap - EXIT
 
     generate_plugin_qmldir "$target"
-    register_manual_plugin "$id" "${name:-$id}"
+    register_manual_plugin "$id" "${name:-$id}" "$target/manifest.json"
     echo "added $id (from $url) into $target"
 
     if $enable; then

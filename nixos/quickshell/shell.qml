@@ -26,6 +26,17 @@ ShellRoot {
     // `entryPoint`) run once, independent of its bar widget's own
     // lifecycle, and be reached from the widget via `bar.shell.serviceFor(id)`
     // - see quickshell/Ui/BarWidget.qml and Bar.qml's `shell` property.
+    //
+    // "overlay"-kind plugins get the same treatment (see _overlays below):
+    // real Omarchy hosts these through its own `omarchy-shell` process and a
+    // generic panel host, neither of which exists here, so an overlay plugin
+    // (e.g. battery-limiter) would load its bar widget/service fine and then
+    // silently do nothing on click - toggleOverlay() shelled out to a binary
+    // that was never there. Each overlay plugin's own entry point is already
+    // a self-contained PanelWindow (see Overlay.qml files), so hosting one
+    // is just: load it, hand it `shell`/`manifest`/`service`, and let the
+    // shell's toggleOverlay()/hide() reach it directly instead of over IPC
+    // to a nonexistent CLI.
     readonly property string pluginsDir: `${Quickshell.env("HOME")}/.config/quickshell/plugins`
     property var layout: ({
             "left": [],
@@ -33,9 +44,29 @@ ShellRoot {
             "right": []
         })
     property var _services: ({})
+    property var _overlays: ({})
 
     function serviceFor(pluginId) {
         return shellRoot._services[pluginId] || null;
+    }
+
+    function overlayFor(pluginId) {
+        return shellRoot._overlays[pluginId] || null;
+    }
+
+    // Called by a plugin's Service/BarWidget instead of shelling out to
+    // Omarchy's `omarchy-shell shell toggle <id> <json>`.
+    function toggleOverlay(pluginId) {
+        const o = shellRoot.overlayFor(pluginId);
+        if (o && typeof o.toggle === "function")
+            o.toggle();
+    }
+
+    // Called by an overlay's own dismiss() (see Overlay.qml: `root.shell.hide(id)`).
+    function hide(pluginId) {
+        const o = shellRoot.overlayFor(pluginId);
+        if (o && typeof o.close === "function")
+            o.close();
     }
 
     readonly property var enabledIds: [].concat(layout.left || [], layout.center || [], layout.right || [])
@@ -60,6 +91,7 @@ ShellRoot {
             id: serviceCandidate
             required property string modelData
             readonly property string pluginId: modelData
+            property var manifestData: null
 
             FileView {
                 id: manifestFile
@@ -67,12 +99,18 @@ ShellRoot {
                 onLoaded: {
                     try {
                         const m = JSON.parse(text());
+                        serviceCandidate.manifestData = m;
                         const kinds = m.kinds || (m.kind ? [m.kind] : []);
-                        const entry = (m.entryPoints && m.entryPoints.service) || (m.kind === "service" ? m.entryPoint : undefined);
-                        if (kinds.indexOf("service") !== -1 && entry)
-                            serviceLoader.source = `${shellRoot.pluginsDir}/${serviceCandidate.pluginId}/${entry}`;
+
+                        const serviceEntry = (m.entryPoints && m.entryPoints.service) || (m.kind === "service" ? m.entryPoint : undefined);
+                        if (kinds.indexOf("service") !== -1 && serviceEntry)
+                            serviceLoader.source = `${shellRoot.pluginsDir}/${serviceCandidate.pluginId}/${serviceEntry}`;
+
+                        const overlayEntry = (m.entryPoints && m.entryPoints.overlay) || (m.kind === "overlay" ? m.entryPoint : undefined);
+                        if (kinds.indexOf("overlay") !== -1 && overlayEntry)
+                            overlayLoader.source = `${shellRoot.pluginsDir}/${serviceCandidate.pluginId}/${overlayEntry}`;
                     } catch (e) {
-                        console.warn("shell: failed to check service kind for " + serviceCandidate.pluginId + ": " + e);
+                        console.warn("shell: failed to check plugin kinds for " + serviceCandidate.pluginId + ": " + e);
                     }
                 }
             }
@@ -93,6 +131,29 @@ ShellRoot {
                         next[k] = shellRoot._services[k];
                     next[serviceCandidate.pluginId] = item;
                     shellRoot._services = next;
+                    // The overlay may have finished loading first (Loader
+                    // completion order isn't guaranteed) and bound `service`
+                    // to null - hand it the service now that it exists.
+                    var ov = shellRoot._overlays[serviceCandidate.pluginId];
+                    if (ov && "service" in ov)
+                        ov.service = item;
+                }
+            }
+
+            Loader {
+                id: overlayLoader
+                onLoaded: {
+                    if (item && "shell" in item)
+                        item.shell = shellRoot;
+                    if (item && "manifest" in item)
+                        item.manifest = serviceCandidate.manifestData;
+                    if (item && "service" in item)
+                        item.service = shellRoot._services[serviceCandidate.pluginId] || null;
+                    var next = {};
+                    for (var k in shellRoot._overlays)
+                        next[k] = shellRoot._overlays[k];
+                    next[serviceCandidate.pluginId] = item;
+                    shellRoot._overlays = next;
                 }
             }
         }

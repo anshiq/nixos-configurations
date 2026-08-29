@@ -1,138 +1,51 @@
 [
   {
-    "author": "ricky",
+    "author": "Sahzudin",
     "barWidget": {
       "allowMultiple": false,
-      "category": "Info",
-      "defaultSection": "right",
+      "category": "Utilities",
+      "defaultSection": "left",
       "defaults": {
-        "barMode": "strip",
-        "dailyGoalHours": 6,
-        "detailLevel": "full",
-        "detailRetentionDays": 120,
-        "gridPalette": "accent",
-        "historyMonths": 6,
-        "idleTimeoutSec": 120,
-        "ignoredApps": "",
-        "trackNetwork": true,
-        "weekStartsMonday": true
+        "defaultEngine": "google",
+        "icon": "󰍋",
+        "openShortcut": "SUPER + ALT + P"
       },
-      "description": "Today's screen time in the bar, with a year heatmap of daily usage boxes and a per-app breakdown.",
-      "displayName": "Screen Time",
+      "description": "Click the icon, type a query, pick an engine with Ctrl+1-9, and open your browser to the results.",
+      "displayName": "Web Search",
       "schema": [
         {
-          "defaultValue": 6,
-          "description": "Heatmap intensity and the over-limit colour are scaled against this.",
-          "key": "dailyGoalHours",
-          "label": "Daily limit (hours)",
-          "max": 24,
-          "min": 1,
-          "step": 1,
-          "type": "integer"
-        },
-        {
-          "defaultValue": 6,
-          "description": "How many months of daily boxes the panel shows at once. Six fits comfortably; more makes the boxes smaller.",
-          "key": "historyMonths",
-          "label": "Months of history in the heatmap",
-          "max": 24,
-          "min": 1,
-          "step": 1,
-          "type": "integer"
-        },
-        {
-          "defaultValue": 120,
-          "description": "Time stops accruing once there has been no input for this long.",
-          "key": "idleTimeoutSec",
-          "label": "Count as idle after (seconds)",
-          "max": 1800,
-          "min": 30,
-          "step": 30,
-          "type": "integer"
-        },
-        {
-          "defaultValue": "strip",
-          "description": "strip = boxes + total, total = time only, icon = glyph only.",
-          "key": "barMode",
-          "label": "Bar display",
-          "options": [
-            "strip",
-            "total",
-            "icon"
-          ],
+          "defaultValue": "google",
+          "key": "defaultEngine",
+          "label": "Default search engine (id)",
           "type": "string"
         },
         {
-          "defaultValue": "accent",
-          "description": "accent = theme accent like GitHub, traffic = green under limit through red over it.",
-          "key": "gridPalette",
-          "label": "Heatmap palette",
-          "options": [
-            "accent",
-            "traffic"
-          ],
+          "defaultValue": "SUPER + ALT + P",
+          "key": "openShortcut",
+          "label": "Open-panel shortcut (Hyprland combo)",
           "type": "string"
         },
         {
-          "defaultValue": true,
-          "description": "Samples the TCP socket table so the breakdown shows how much each app downloaded (D) and uploaded (U). Reads only your own sockets; QUIC/HTTP3 traffic is not visible to it and undercounts.",
-          "key": "trackNetwork",
-          "label": "Track data usage per app",
-          "type": "boolean"
-        },
-        {
-          "defaultValue": true,
-          "key": "weekStartsMonday",
-          "label": "Start weeks on Monday",
-          "type": "boolean"
-        },
-        {
-          "defaultValue": "full",
-          "description": "off = app names only. terminal = also the program or directory in terminals. full = also which site a browser is on (taken from the tab title, never the page you were reading).",
-          "key": "detailLevel",
-          "label": "What to record inside a window",
-          "options": [
-            "off",
-            "terminal",
-            "full"
-          ],
+          "defaultValue": "󰍋",
+          "key": "icon",
+          "label": "Bar icon (Nerd Font glyph)",
           "type": "string"
-        },
-        {
-          "defaultValue": "",
-          "description": "Comma-separated app ids that should never count. Screensaver and lock screens are always ignored. Trailing * matches a prefix, e.g. steam_app_*",
-          "key": "ignoredApps",
-          "label": "Also ignore these apps",
-          "type": "string"
-        },
-        {
-          "defaultValue": 120,
-          "description": "Daily totals are kept forever; per-app detail older than this is dropped.",
-          "key": "detailRetentionDays",
-          "label": "Keep per-app detail for (days)",
-          "max": 3650,
-          "min": 7,
-          "step": 7,
-          "type": "integer"
         }
       ]
     },
-    "description": "Daily screen time tracking with a GitHub-style contribution heatmap. Digital Wellbeing for your Omarchy bar, fully local.",
+    "description": "Quickly search the web with a click: pick a search engine with Ctrl+1-9 and open your browser to the results.",
     "entryPoints": {
-      "barWidget": "BarWidget.qml",
-      "service": "Service.qml"
+      "barWidget": "BarWidget.qml"
     },
-    "id": "io.github.ricky.screentime",
-    "keepLoaded": true,
+    "id": "io.github.sahzudin.omarchy-google-search",
     "kinds": [
-      "service",
       "bar-widget"
     ],
     "license": "MIT",
-    "name": "Screen Time",
+    "name": "Web Search",
     "origin": "builtin",
     "schemaVersion": 1,
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   {
     "entryPoint": "ActiveWindow.qml",
@@ -259,8 +172,8 @@
     "origin": "external"
   },
   {
-    "id": "io.github.sahzudin.omarchy-google-search",
-    "name": "Web Search",
+    "id": "io.github.alexdont.battery-limiter",
+    "name": "Battery Limiter",
     "kind": "bar-widget",
     "origin": "manual"
   }

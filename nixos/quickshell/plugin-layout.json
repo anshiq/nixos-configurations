@@ -18,6 +18,6 @@
     "user.record",
     "user.bluelight",
     "user.power",
-    "io.github.ricky.screentime"
+    "io.github.alexdont.battery-limiter"
   ]
 }
