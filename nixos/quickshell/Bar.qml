@@ -15,8 +15,32 @@ PanelWindow {
         right: true
         top: true
     }
-    implicitHeight: 18
-    exclusiveZone: 18
+
+    // Auto-hide: full height/exclusiveZone (reserving screen space, same as
+    // before this was added) while the mouse is over the bar's row at the
+    // screen's top edge; shrinks to a 1px sliver - still anchored top, still
+    // hoverable, exclusiveZone 0 - the rest of the time, so windows get that
+    // space back. revealed starts true so the bar looks normal until the
+    // mouse first leaves it. hideTimer's 2000ms is the "hold still" grace
+    // period before it actually hides, so passing the top edge on the way to
+    // something else doesn't cause flicker.
+    readonly property int expandedHeight: 18
+    readonly property int collapsedHeight: 1
+    property bool revealed: true
+
+    implicitHeight: revealed ? expandedHeight : collapsedHeight
+    exclusiveZone: revealed ? expandedHeight : 0
+    Behavior on implicitHeight {
+        NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+    }
+    Behavior on exclusiveZone {
+        NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
+    }
+    // Starts the collapse countdown on launch too, so the bar auto-hides
+    // even if the mouse never touches it after startup, not just after a
+    // hover-then-leave.
+    Component.onCompleted: hideTimer.start()
+
     color: Colors.background
 
     // Injected from shell.qml (`Bar { shell: shellRoot }`) - lets a widget
@@ -169,31 +193,65 @@ PanelWindow {
         onTextChanged: root.applyLayout(text())
     }
 
-    PluginRow {
-        ids: root.layout.left
-        bar: root
-        anchors {
-            left: parent.left
-            top: parent.top
-            bottom: parent.bottom
-            leftMargin: 6
+    // Hover detection for auto-hide, declared before the plugin content so
+    // it sits underneath in stacking order - acceptedButtons: Qt.NoButton
+    // means it never accepts a press, so clicks fall through to the
+    // widgets/buttons above it instead of being eaten here. Covers the full
+    // window, so it still senses the mouse over the 1px collapsed sliver at
+    // the screen's top edge.
+    MouseArea {
+        anchors.fill: parent
+        hoverEnabled: true
+        acceptedButtons: Qt.NoButton
+        onEntered: {
+            hideTimer.stop();
+            root.revealed = true;
         }
+        onExited: hideTimer.restart()
     }
 
-    PluginRow {
-        ids: root.layout.center
-        bar: root
-        anchors.centerIn: parent
+    Timer {
+        id: hideTimer
+        interval: 2000
+        onTriggered: root.revealed = false
     }
 
-    PluginRow {
-        ids: root.layout.right
-        bar: root
-        anchors {
-            right: parent.right
-            top: parent.top
-            bottom: parent.bottom
-            rightMargin: 6
+    // Plugin content fades out with the collapse instead of being squashed
+    // into the 1px sliver mid-animation.
+    Item {
+        id: content
+        anchors.fill: parent
+        opacity: root.revealed ? 1 : 0
+        Behavior on opacity {
+            NumberAnimation { duration: 100 }
+        }
+
+        PluginRow {
+            ids: root.layout.left
+            bar: root
+            anchors {
+                left: parent.left
+                top: parent.top
+                bottom: parent.bottom
+                leftMargin: 6
+            }
+        }
+
+        PluginRow {
+            ids: root.layout.center
+            bar: root
+            anchors.centerIn: parent
+        }
+
+        PluginRow {
+            ids: root.layout.right
+            bar: root
+            anchors {
+                right: parent.right
+                top: parent.top
+                bottom: parent.bottom
+                rightMargin: 6
+            }
         }
     }
 

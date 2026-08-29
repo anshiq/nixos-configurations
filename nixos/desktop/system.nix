@@ -92,6 +92,12 @@ in
     };
   };
 
+  # Reboot/shutdown was hanging on "A stop job is running for user manager
+  # for uid 1000" for the full systemd default (90s) before giving up and
+  # killing it. Caps that wait at 10s instead - the service is still killed
+  # (SIGTERM then SIGKILL) if it doesn't stop cleanly, just much sooner.
+  systemd.services."user@".serviceConfig.TimeoutStopSec = "7s";
+
   environment.systemPackages = with pkgs; [
     google-chrome
     firefox
