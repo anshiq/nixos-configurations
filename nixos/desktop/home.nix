@@ -415,6 +415,27 @@ in
           ExecStart = "${config.xdg.configHome}/waybar/scripts/battery-notify.sh";
         };
       };
+      # Real Omarchy has a built-in `omarchy.clipboard` service that watches
+      # the clipboard and writes ~/.local/state/omarchy/clipboard-history.json;
+      # this system has none, so the io.github.vuhuy.clipboard-manager bar
+      # plugin (manually plugin.sh-added, not Nix-declared - see
+      # plugin-layout.json) had an icon but no history to show. `wl-paste
+      # --watch` runs the sync script below once per clipboard change,
+      # feeding it the new text on stdin.
+      clipboard-history = {
+        Unit = {
+          ConditionEnvironment = "WAYLAND_DISPLAY";
+          Description = "Sync clipboard changes into Omarchy's clipboard-history.json";
+          After = [ config.wayland.systemd.target ];
+          PartOf = [ config.wayland.systemd.target ];
+        };
+        Install.WantedBy = [ config.wayland.systemd.target ];
+        Service = {
+          ExecStart = "${pkgs.wl-clipboard}/bin/wl-paste --type text --watch %h/.config/quickshell/scripts/clipboard-history-sync.sh";
+          Restart = "always";
+          RestartSec = "10";
+        };
+      };
     }
     # One timer+service pair per ../themes/schedule.nix entry - applies to
     # ghostty, kitty, hyprlock, Quickshell (bar/launcher/notifications), and

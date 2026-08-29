@@ -18,6 +18,7 @@
     "user.record",
     "user.bluelight",
     "user.power",
-    "io.github.alexdont.battery-limiter"
+    "io.github.alexdont.battery-limiter",
+    "io.github.vuhuy.clipboard-manager"
   ]
 }

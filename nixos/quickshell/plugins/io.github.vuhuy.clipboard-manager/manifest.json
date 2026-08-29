@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.vuhuy.clipboard-manager",
+  "name": "Clipboard Manager",
+  "version": "0.1.0",
+  "author": "Huy Vu Quang",
+  "license": "MIT",
+  "description": "A native Omarchy bar panel for browsing and reusing clipboard history.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Clipboard Manager",
+    "description": "Search, preview, paste, and manage Omarchy clipboard history.",
+    "category": "Utility",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "tooltip": "Clipboard history",
+      "maxResults": 50
+    },
+    "schema": [
+      {
+        "key": "tooltip",
+        "type": "string",
+        "label": "Tooltip",
+        "defaultValue": "Clipboard history"
+      },
+      {
+        "key": "maxResults",
+        "type": "integer",
+        "label": "Maximum visible results",
+        "min": 10,
+        "max": 150,
+        "step": 10,
+        "defaultValue": 50
+      }
+    ]
+  }
+}
