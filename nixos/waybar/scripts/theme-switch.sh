@@ -179,14 +179,42 @@ mkdir -p "$(dirname "$bluelight_state")"
 [ -f "$bluelight_state" ] || echo "$bluelight_default_temp" > "$bluelight_state"
 # sunset-night owns a time-based warmth ramp (see theme-warmth-ramp.sh):
 # minimal warmth at 15:00 rising to maximum by 18:00, then held through the
-# rest of the night (including the following black-white window). Reset to
-# the ramp's starting point on every fresh entry into sunset-night, so a
-# previous night's maxed-out warmth - or a manual scroll tweak - doesn't
-# leak into the next day's start; the ramp timer takes it from here.
+# rest of the night (including the following black-white window). Set the
+# saved temp to wherever the ramp *should currently read* on every fresh
+# entry into sunset-night - not just the ramp's starting value - since
+# entry doesn't only happen at 15:00: a manual pick, `toggle`/`next`, or a
+# login landing here via the no-arg schedule lookup can all enter it well
+# past 18:00, and pinning those to the minimal (6500K) value left it stuck
+# there until the next day's ramp instead of correctly maxing out
+# immediately. This also fixes a previous night's leftover warmth the same
+# way a straight reset would have, since any of these branches overwrites it.
 if [ "$mode" = "sunset-night" ]; then
-  echo 6500 > "$bluelight_state"
+  ramp_start=$((15 * 60))
+  ramp_end=$((18 * 60))
+  ramp_min_temp=6500
+  ramp_max_temp=2500
+  now_minutes=$(( $(date +%-H) * 60 + $(date +%-M) ))
+  if [ "$now_minutes" -lt "$ramp_start" ]; then
+    echo "$ramp_min_temp" > "$bluelight_state"
+  elif [ "$now_minutes" -ge "$ramp_end" ]; then
+    echo "$ramp_max_temp" > "$bluelight_state"
+  else
+    elapsed=$(( now_minutes - ramp_start ))
+    span=$(( ramp_end - ramp_start ))
+    echo $(( ramp_min_temp - elapsed * (ramp_min_temp - ramp_max_temp) / span )) > "$bluelight_state"
+  fi
 fi
 bluelight_temp=$(cat "$bluelight_state")
+
+# Cycling directly between the two night themes (sunset-night <-> black-white,
+# e.g. via `toggle`/`next`) never kills hyprsunset - both are kind=night - so
+# the freshly recomputed sunset-night temp above would otherwise sit in the
+# state file unapplied until some later restart. Push it live immediately
+# when the process is already up; the startup path below covers the case
+# where it isn't.
+if [ "$mode" = "sunset-night" ] && pgrep -x hyprsunset >/dev/null; then
+  hyprctl hyprsunset temperature "$bluelight_temp" >/dev/null 2>&1 || true
+fi
 
 if [ "$kind" = "night" ]; then
   if ! pgrep -x hyprsunset >/dev/null; then
