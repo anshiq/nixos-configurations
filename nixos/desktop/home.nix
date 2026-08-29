@@ -263,6 +263,7 @@ in
     hyprsunset
     jq # quickshell/scripts/plugin.sh
     libnotify
+    librsvg # waybar/scripts/render-wallpaper.sh's rsvg-convert
     obs-studio
     pamixer
     playerctl
@@ -384,9 +385,16 @@ in
         source = ../waybar/scripts/screenshot.sh;
         executable = true;
       };
+      "waybar/scripts/render-wallpaper.sh" = {
+        source = ../waybar/scripts/render-wallpaper.sh;
+        executable = true;
+      };
       # Deployed to a stable path so hyprland.lua (verbatim, untemplated) can
       # point swaybg at it without a Nix store path baked into the Lua file.
       "wallpapers/wallpaper.png".source = wallpaper;
+      # __TOKEN__ template rendered per-theme by render-wallpaper.sh above -
+      # see that script and the SVG's own header comment.
+      "wallpapers/shortcuts-latest.svg".source = ./wallpapers/shortcuts-latest.svg;
     }
     # style.css, ghostty/config, kitty/kitty.conf, hypr/hyprlock.conf, and
     # hypr/colors.lua are NOT managed directly: each is a runtime symlink

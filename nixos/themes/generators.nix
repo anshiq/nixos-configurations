@@ -250,6 +250,22 @@ in
     [tabs]
     active = { fg = "${hex t.background}", bg = "${hex t.accent}", bold = true }
     inactive = { fg = "${hex t.muted}", bg = "${hex t.darkBackground}" }
+
+    # yazi ships its own built-in filetype rules (directories hardcoded to
+    # literal "blue", regardless of any [manager]/[status] overrides above)
+    # - these override that default with the active theme's own colors, so
+    # e.g. mono's folders come out gray and sunset-night's come out orange
+    # instead of every theme showing yazi's baked-in blue.
+    [filetype]
+    rules = [
+      { url = "*/", fg = "${hex t.blue}" },
+      { url = "*", is = "orphan", fg = "${hex t.red}" },
+      { url = "*", is = "exec", fg = "${hex t.green}" },
+      { mime = "image/*", fg = "${hex t.yellow}" },
+      { mime = "{audio,video}/*", fg = "${hex t.magenta}" },
+      { mime = "application/{zip,gzip,x-tar,x-bzip2,x-7z-compressed,x-rar}", fg = "${hex t.red}" },
+      { mime = "inode/empty", fg = "${hex t.muted}" },
+    ]
   '';
 
   # lazygit's `gui.theme` block, staged per-theme at lazygit/config-<name>.yml.

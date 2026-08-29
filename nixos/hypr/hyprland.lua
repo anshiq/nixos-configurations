@@ -45,9 +45,19 @@ hl.env("HYPRCURSOR_THEME", "Bibata-Modern-Ice")
 
 hl.on("hyprland.start", function()
   hl.exec_cmd("$HOME/.config/waybar/scripts/theme-switch.sh")
-  -- Same image hyprlock and the SDDM greeter use - see desktop/home.nix and
-  -- desktop/system.nix.
-  hl.exec_cmd("swaybg -i $HOME/.config/wallpapers/wallpaper.png -m fill")
+  -- Reads from the state-dir path theme-switch.sh's render-wallpaper.sh
+  -- writes to (NOT ~/.config/wallpapers/wallpaper.png - that static image is
+  -- only the hyprlock/SDDM-greeter background, see desktop/home.nix and
+  -- desktop/system.nix), so the desktop background always matches whichever
+  -- theme is active rather than showing one fixed image. `exec_cmd` above
+  -- and this one both fire without waiting on each other, so this is a
+  -- small shell loop instead of a bare `swaybg -i ...`: it waits for that
+  -- first theme-switch.sh run to have actually written the file before
+  -- swaybg tries to read it, rather than assuming exec order.
+  hl.exec_cmd(
+    "bash -c 'w=$HOME/.local/state/wallpaper/wallpaper.png; " ..
+    "until [ -s \"$w\" ]; do sleep 0.05; done; exec swaybg -i \"$w\" -m fill'"
+  )
   -- waybar/wofi retired - Quickshell (bar/launcher/power menu/notifications)
   -- has full parity, see /home/nixos/.claude/plans/stateless-wishing-willow.md.
   hl.exec_cmd("quickshell")

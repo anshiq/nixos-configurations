@@ -1,0 +1,176 @@
+<!-- Wallpaper template: __BG__/__FG__/__BRIGHT__/__ACCENT__/__ACCENT2__/__MUTED__
+     are placeholders substituted per-theme by waybar/scripts/render-wallpaper.sh
+     (values pulled from the active theme's quickshell theme.json) - this file
+     itself is never shown as-is. See theme-switch.sh for the render call. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+<rect width="1920" height="1080" fill="__BG__"/>
+<style>
+  text { font-family: JetBrainsMono Nerd Font Mono, JetBrainsMono Nerd Font, monospace; }
+  .name { font-weight: 700; font-size: 21px; fill: __BRIGHT__; }
+  .key { font-weight: 700; font-size: 15px; fill: __ACCENT2__; }
+  .desc { font-size: 15px; fill: __FG__; }
+  .foot { font-size: 13px; fill: __MUTED__; }
+</style>
+<circle cx="85" cy="58" r="4" fill="__ACCENT__"/>
+<text x="98" y="64" class="name">HYPRLAND</text>
+<text x="80" y="98" class="key">SUPER + Enter</text>
+<text x="330" y="98" class="desc">Terminal (Ghostty)</text>
+<text x="80" y="125" class="key">SUPER + Shift + Enter</text>
+<text x="330" y="125" class="desc">Browser</text>
+<text x="80" y="152" class="key">SUPER + Shift + B</text>
+<text x="330" y="152" class="desc">Browser</text>
+<text x="80" y="179" class="key">SUPER + Alt + B</text>
+<text x="330" y="179" class="desc">Browser (2nd profile)</text>
+<text x="80" y="206" class="key">SUPER + Space</text>
+<text x="330" y="206" class="desc">App launcher</text>
+<text x="80" y="233" class="key">SUPER + Q / W</text>
+<text x="330" y="233" class="desc">Close window</text>
+<text x="80" y="260" class="key">SUPER + F</text>
+<text x="330" y="260" class="desc">Toggle fullscreen</text>
+<text x="80" y="287" class="key">SUPER + Alt + F</text>
+<text x="330" y="287" class="desc">Toggle maximized</text>
+<text x="80" y="314" class="key">SUPER + T</text>
+<text x="330" y="314" class="desc">Toggle floating</text>
+<text x="80" y="341" class="key">SUPER + P</text>
+<text x="330" y="341" class="desc">Pseudo-tile window</text>
+<text x="80" y="368" class="key">SUPER + J</text>
+<text x="330" y="368" class="desc">Toggle split</text>
+<text x="80" y="395" class="key">SUPER + G</text>
+<text x="330" y="395" class="desc">Toggle window group</text>
+<text x="80" y="422" class="key">SUPER + ←/→/↑/↓</text>
+<text x="330" y="422" class="desc">Focus window</text>
+<text x="80" y="449" class="key">SUPER + Shift + arrows</text>
+<text x="330" y="449" class="desc">Swap window</text>
+<text x="80" y="476" class="key">SUPER + Alt + H/J/K/L</text>
+<text x="330" y="476" class="desc">Resize window</text>
+<text x="80" y="503" class="key">SUPER + 1..9</text>
+<text x="330" y="503" class="desc">Go to workspace N</text>
+<text x="80" y="530" class="key">SUPER + Shift + 1..9</text>
+<text x="330" y="530" class="desc">Move window to workspace N</text>
+<text x="80" y="557" class="key">SUPER + Tab / Shift+Tab</text>
+<text x="330" y="557" class="desc">Next / previous workspace</text>
+<text x="80" y="584" class="key">SUPER + S</text>
+<text x="330" y="584" class="desc">Show/hide scratchpad</text>
+<text x="80" y="611" class="key">SUPER + Alt + S</text>
+<text x="330" y="611" class="desc">Move window to scratchpad</text>
+<text x="80" y="638" class="key">SUPER + Ctrl + L</text>
+<text x="330" y="638" class="desc">Lock screen</text>
+<text x="80" y="665" class="key">SUPER + Shift + T</text>
+<text x="330" y="665" class="desc">Toggle day/night theme</text>
+<text x="80" y="692" class="key">Print</text>
+<text x="330" y="692" class="desc">Screenshot → clipboard</text>
+<text x="80" y="719" class="key">SUPER + Print</text>
+<text x="330" y="719" class="desc">Color picker</text>
+<text x="80" y="746" class="key">SUPER + Shift + Print</text>
+<text x="330" y="746" class="desc">Toggle OBS recording</text>
+<text x="80" y="773" class="key">SUPER + V</text>
+<text x="330" y="773" class="desc">Clipboard history</text>
+<circle cx="705" cy="58" r="4" fill="__ACCENT__"/>
+<text x="718" y="64" class="name">ZELLIJ</text>
+<text x="700" y="98" class="key">Ctrl + h/j/k/l</text>
+<text x="950" y="98" class="desc">Move focus L/D/U/R</text>
+<text x="700" y="125" class="key">Ctrl + n</text>
+<text x="950" y="125" class="desc">New pane</text>
+<text x="700" y="152" class="key">Ctrl + p</text>
+<text x="950" y="152" class="desc">Pane mode</text>
+<text x="700" y="179" class="key">Ctrl + t</text>
+<text x="950" y="179" class="desc">Tab mode</text>
+<text x="700" y="206" class="key">Ctrl + s</text>
+<text x="950" y="206" class="desc">Scroll mode</text>
+<text x="700" y="233" class="key">Ctrl + o</text>
+<text x="950" y="233" class="desc">Session mode</text>
+<text x="700" y="260" class="key">Ctrl + f</text>
+<text x="950" y="260" class="desc">Toggle floating panes</text>
+<text x="700" y="287" class="key">Ctrl + g</text>
+<text x="950" y="287" class="desc">Locked mode (toggle)</text>
+<text x="700" y="314" class="key">Alt + - / Alt + =</text>
+<text x="950" y="314" class="desc">Resize pane - / +</text>
+<text x="700" y="341" class="key">(pane) n / f</text>
+<text x="950" y="341" class="desc">New pane / fullscreen pane</text>
+<text x="700" y="368" class="key">(pane) r / x / z</text>
+<text x="950" y="368" class="desc">Rename / close / toggle frames</text>
+<text x="700" y="395" class="key">(tab) 1..4</text>
+<text x="950" y="395" class="desc">Go to tab N</text>
+<text x="700" y="422" class="key">(tab) n / r / x</text>
+<text x="950" y="422" class="desc">New / rename / close</text>
+<text x="700" y="449" class="key">(tab) h / l</text>
+<text x="950" y="449" class="desc">Previous / next tab</text>
+<text x="700" y="476" class="key">(scroll) j / k</text>
+<text x="950" y="476" class="desc">Scroll down / up</text>
+<text x="700" y="503" class="key">(scroll) d / u</text>
+<text x="950" y="503" class="desc">Half-page down / up</text>
+<text x="700" y="530" class="key">(scroll) G</text>
+<text x="950" y="530" class="desc">Scroll to bottom</text>
+<text x="700" y="557" class="key">(scroll) /</text>
+<text x="950" y="557" class="desc">Search (then Enter)</text>
+<text x="700" y="584" class="key">(scroll) n / N</text>
+<text x="950" y="584" class="desc">Next / previous match</text>
+<text x="700" y="611" class="key">(session) d</text>
+<text x="950" y="611" class="desc">Detach session</text>
+<text x="700" y="638" class="key">(session) w</text>
+<text x="950" y="638" class="desc">Session manager</text>
+<text x="700" y="665" class="key">(session) c</text>
+<text x="950" y="665" class="desc">Configuration UI</text>
+<text x="700" y="692" class="key">Esc / Enter</text>
+<text x="950" y="692" class="desc">Return to normal mode</text>
+<circle cx="1325" cy="58" r="4" fill="__ACCENT__"/>
+<text x="1338" y="64" class="name">FISH SHELL</text>
+<text x="1320" y="98" class="key">glog</text>
+<text x="1570" y="98" class="desc">Pretty git log graph</text>
+<text x="1320" y="125" class="key">reload</text>
+<text x="1570" y="125" class="desc">Reload fish config</text>
+<text x="1320" y="152" class="key">zjl</text>
+<text x="1570" y="152" class="desc">List zellij sessions</text>
+<text x="1320" y="179" class="key">zja</text>
+<text x="1570" y="179" class="desc">Attach to zellij session</text>
+<text x="1320" y="206" class="key">theme-status</text>
+<text x="1570" y="206" class="desc">Show active theme</text>
+<text x="1320" y="233" class="key">mkcd &lt;dir&gt;</text>
+<text x="1570" y="233" class="desc">Create dir and cd into it</text>
+<text x="1320" y="260" class="key">gfile &lt;paths...&gt;</text>
+<text x="1570" y="260" class="desc">Create files + parent dirs</text>
+<text x="1320" y="287" class="key">y [path]</text>
+<text x="1570" y="287" class="desc">Yazi; cd to last dir on exit</text>
+<text x="1320" y="314" class="key">dev</text>
+<text x="1570" y="314" class="desc">Zellij dev layout (hx+fish+yazi)</text>
+<text x="1320" y="341" class="key">Ctrl + R</text>
+<text x="1570" y="341" class="desc">Fuzzy search history (fzf)</text>
+<text x="1320" y="368" class="key">Ctrl + T</text>
+<text x="1570" y="368" class="desc">Fuzzy find files → cmdline (fzf)</text>
+<text x="1320" y="395" class="key">Alt + C</text>
+<text x="1570" y="395" class="desc">Fuzzy cd into subdirectory (fzf)</text>
+<circle cx="1325" cy="446" r="4" fill="__ACCENT__"/>
+<text x="1338" y="452" class="name">HELIX EDITOR</text>
+<text x="1320" y="486" class="key">Esc</text>
+<text x="1570" y="486" class="desc">Collapse to primary selection</text>
+<text x="1320" y="513" class="key">Ctrl + g</text>
+<text x="1570" y="513" class="desc">Open lazygit inside editor</text>
+<text x="1320" y="540" class="key">Ctrl + y</text>
+<text x="1570" y="540" class="desc">Pick / open file via yazi</text>
+<text x="1320" y="567" class="key">jk</text>
+<text x="1570" y="567" class="desc">(insert) return to normal mode</text>
+<text x="1320" y="594" class="key">Ctrl + s</text>
+<text x="1570" y="594" class="desc">(insert) save file</text>
+<circle cx="1325" cy="645" r="4" fill="__ACCENT__"/>
+<text x="1338" y="651" class="name">YAZI</text>
+<text x="1320" y="685" class="key">e</text>
+<text x="1570" y="685" class="desc">Open file interactively (choose app)</text>
+<text x="1320" y="712" class="key">Ctrl + s</text>
+<text x="1570" y="712" class="desc">Drop into blocking shell</text>
+<text x="1320" y="739" class="key">.</text>
+<text x="1570" y="739" class="desc">Toggle hidden files</text>
+<text x="1320" y="766" class="key">g</text>
+<text x="1570" y="766" class="desc">Interactive jump-to-directory</text>
+<circle cx="1325" cy="817" r="4" fill="__ACCENT__"/>
+<text x="1338" y="823" class="name">GHOSTTY</text>
+<text x="1320" y="857" class="key">Ctrl + Shift + C</text>
+<text x="1570" y="857" class="desc">Copy to clipboard</text>
+<text x="1320" y="884" class="key">Ctrl + Shift + V</text>
+<text x="1570" y="884" class="desc">Paste from clipboard</text>
+<text x="1320" y="911" class="key">Ctrl + Shift + ,</text>
+<text x="1570" y="911" class="desc">Reload config</text>
+<circle cx="1325" cy="962" r="4" fill="__ACCENT__"/>
+<text x="1338" y="968" class="name">NIXOS</text>
+<text x="1320" y="1002" class="key">sudo nixos-rebuild switch --flake .#nixos</text>
+<text x="960" y="1056" text-anchor="middle" class="foot">mod = SUPER  ·  theme-aware wallpaper, regenerated on every theme switch</text>
+</svg>

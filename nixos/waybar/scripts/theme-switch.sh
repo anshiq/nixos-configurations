@@ -163,6 +163,14 @@ active2=$(json_field "$theme_json" borderActive2)
 inactive=$(json_field "$theme_json" borderInactive)
 hyprctl eval "hl.config({ general = { col = { active_border = { colors = { \"rgba(${active1}ee)\", \"rgba(${active2}ee)\" }, angle = 45 }, inactive_border = \"rgba(${inactive}aa)\" } } })" >/dev/null 2>&1 || true
 
+# Re-renders the desktop wallpaper (see render-wallpaper.sh) from the same
+# theme.json and restarts swaybg to pick it up - swaybg has no file-watcher
+# of its own, so a symlink/file swap alone would leave the old image showing
+# until the next full session restart.
+"$scripts_dir/render-wallpaper.sh" "$theme_json"
+{ pgrep -x swaybg >/dev/null && pkill -x swaybg; } || true
+setsid -f swaybg -i "$HOME/.local/state/wallpaper/wallpaper.png" -m fill >/dev/null 2>&1 || true
+
 kind=$(awk -v n="$mode" '$1==n {print $2}' "$kinds_file")
 
 bluelight_state="$HOME/.cache/waybar-bluelight-temp"
