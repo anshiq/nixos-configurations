@@ -1,0 +1,6 @@
+BarWidget 1.0 BarWidget.qml
+BoundedReader 1.0 BoundedReader.qml
+Panel 1.0 Panel.qml
+Service 1.0 Service.qml
+UsageGrid 1.0 UsageGrid.qml
+UsageRow 1.0 UsageRow.qml

@@ -27,8 +27,19 @@ let
   # every plugin the shell knows about, independent of whether it's
   # currently enabled on the bar (that's plugin-layout.json's job, edited by
   # quickshell/scripts/plugin.sh).
+  # Excludes externalPlugins ids: those directories are activation-script-
+  # managed (see home.activation.quickshellPlugins below, which fills them
+  # with per-file symlinks into each plugin's fetched store path and marks
+  # them with a `.nix-managed` file) and already counted below via
+  # externalPlugins directly. Reading their manifest.json *here* instead
+  # would follow a tracked symlink to an absolute store path, which errors
+  # ("forbidden in pure evaluation mode") once that symlink's target is
+  # committed and evaluation runs through git's filtered source tree rather
+  # than the live filesystem.
   builtinPluginDirs = builtins.attrNames (
-    lib.filterAttrs (name: type: type == "directory") (builtins.readDir ../quickshell/plugins)
+    lib.filterAttrs (
+      name: type: type == "directory" && !(externalPlugins ? ${name})
+    ) (builtins.readDir ../quickshell/plugins)
   );
   builtinPluginManifest =
     dir: builtins.fromJSON (builtins.readFile (../quickshell/plugins + "/${dir}/manifest.json"));
