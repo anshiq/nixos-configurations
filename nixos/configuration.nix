@@ -57,6 +57,7 @@
     gtk3
     gdk-pixbuf
     harfbuzz
+    dig
 
     # python native extensions
     libffi
@@ -102,6 +103,22 @@
 
     # Audio
     alsa-lib
+    libpulseaudio # needed by the Android emulator's qemu-system-x86_64
+
+    # Android emulator (qemu-system-x86_64 + its bundled Qt UI) - found by
+    # trial and error running `emulator -avd ...` directly: it's an
+    # unpatched prebuilt binary from the SDK, not a nix package, so every
+    # shared lib it dlopens has to be listed here explicitly.
+    libpng
+    libjpeg
+    SDL2
+    libGL
+    nss
+    nspr
+    libxkbfile
+    libSM
+    libICE
+    libbsd
 
     # Misc
     udev
@@ -126,6 +143,7 @@
       "video"
       "audio"
       "input"
+      "kvm"
     ];
     shell = pkgs.fish;
     initialPassword = "a";
@@ -150,6 +168,16 @@
       registry-mirrors = [ "https://mirror.gcr.io" ];
     };
   };
+
+  ############################
+  ## QEMU/KVM Virtualization (rootless, GNOME Boxes)
+  ############################
+  # GNOME Boxes talks to libvirt over qemu:///session by default, which spawns
+  # a per-user virtqemud/qemu process instead of using the system-wide
+  # qemu:///system daemon, so VMs run as your own user rather than root.
+  virtualisation.libvirtd.enable = true;
+  virtualisation.spiceUSBRedirection.enable = true;
+  programs.dconf.enable = true; # GNOME apps (incl. Boxes) need dconf for settings
 
   ############################
   ## System Packages
@@ -218,6 +246,9 @@
     # Docker (rootless daemon enabled above; compose plugin isn't pulled in
     # automatically by virtualisation.docker.rootless)
     docker-compose
+
+    # QEMU/KVM GUI (rootless session libvirtd enabled above)
+    gnome-boxes
   ];
 
   environment.sessionVariables.XKB_CONFIG_ROOT = "${pkgs.xkeyboard-config}/share/X11/xkb";

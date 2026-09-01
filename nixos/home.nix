@@ -72,6 +72,18 @@ in
     # Java
     jdk21 # pin a specific LTS version rather than floating `jdk`
 
+    # Android (FlorisBoard needs compileSdk 36 / NDK 29.0.14206865 - see
+    # ~/myprojects/mykeyboard/gradle.properties and gradle/tools.versions.toml).
+    # Android Studio manages its own SDK/NDK/emulator images under
+    # ~/Android/Sdk (its default location, first-run SDK Manager wizard) -
+    # that dir is writable, unlike a nix-store-provided SDK would be, so
+    # Studio can add/update components itself. ANDROID_HOME/PATH below just
+    # point the shell at that same directory so adb/sdkmanager/etc. work from
+    # the CLI too. Prebuilt SDK binaries (adb, aapt2, emulator, NDK
+    # toolchain) are unpatched non-Nix ELF binaries; programs.nix-ld
+    # (configuration.nix) is what lets them actually run on NixOS.
+    android-studio
+
     # Node.js
     nodejs_22 # pin a version instead of floating `nodejs`
 
@@ -136,8 +148,33 @@ in
     JAVA_HOME = "${pkgs.jdk21}/lib/openjdk";
     NPM_CONFIG_PREFIX = "$HOME/.npm-global";
 
+    # Android Studio's default SDK install location. Point CLI tooling
+    # (gradlew, adb, sdkmanager) at the same place Studio's SDK Manager
+    # installs/updates things, so there's only one SDK on disk.
+    ANDROID_HOME = "$HOME/Android/Sdk";
+    ANDROID_SDK_ROOT = "$HOME/Android/Sdk"; # deprecated alias some tools/scripts still read
+
+    # FlorisBoard's lib/native pins this NDK version in
+    # gradle/tools.versions.toml; some non-Gradle tooling (clangd, manual
+    # ndk-build) looks for ANDROID_NDK_HOME/ROOT instead of reading that file.
+    ANDROID_NDK_HOME = "$HOME/Android/Sdk/ndk/29.0.14206865";
+    ANDROID_NDK_ROOT = "$HOME/Android/Sdk/ndk/29.0.14206865";
+
+    # avdmanager writes AVDs under XDG_CONFIG_HOME (~/.config/.android/avd)
+    # on this system, but the `emulator` binary's own default search path is
+    # $ANDROID_SDK_HOME/avd or ~/.android/avd - it never looks at
+    # XDG_CONFIG_HOME. Without this it fails with "Unknown AVD name" even
+    # though `avdmanager list avd` shows the AVD just fine.
+    ANDROID_AVD_HOME = "$HOME/.config/.android/avd";
+
     # Rust doesn't need CARGO_HOME/RUSTUP_HOME unless you use rustup
-    # (you're using pkgs.rustc/cargo directly, so this is optional)
+    # (you're using pkgs.rustc/cargo directly, so this is optional) - but
+    # lib/native/src/main/rust/CMakeLists.txt specifically find_program()s
+    # `rustup` (installed via rustup.rs into ~/.cargo/bin, not from nixpkgs -
+    # nixpkgs' rustc/cargo below don't provide the `rustup target add`
+    # cross-compilation workflow that build needs) to add the Android
+    # targets and build the native lib, so CARGO_HOME must stay the rustup
+    # default here.
     CARGO_HOME = "$HOME/.cargo";
   };
 
@@ -146,6 +183,20 @@ in
     "$HOME/.local/bin"
 
     "$HOME/.go/bin"
+
+    # Android SDK CLI tools (installed by Android Studio into $ANDROID_HOME
+    # on first run). cmdline-tools/latest is what `sdkmanager`/`avdmanager`
+    # live in once installed via Studio's SDK Manager -> SDK Tools tab.
+    "$HOME/Android/Sdk/platform-tools" # adb, fastboot
+    "$HOME/Android/Sdk/emulator"
+    "$HOME/Android/Sdk/cmdline-tools/latest/bin" # sdkmanager, avdmanager
+    "$HOME/Android/Sdk/build-tools/36.0.0" # aapt2, zipalign, apksigner (matches gradle/tools.versions.toml)
+    "$HOME/Android/Sdk/cmake/4.1.2/bin" # cmake, ninja (matches gradle/tools.versions.toml)
+
+    # rustup shims (rustup.rs install, not nixpkgs) - lib/native's CMake
+    # build needs the real `rustup` binary here; keeping it on PATH too so
+    # `cargo`/`rustc`/`rustup target add` work interactively for this project.
+    "$HOME/.cargo/bin"
   ];
 
   programs.fish = {
