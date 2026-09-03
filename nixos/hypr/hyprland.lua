@@ -223,6 +223,9 @@ hl.bind(mod .. " + ALT + S", hl.dsp.window.move({ workspace = "special:scratchpa
 -- Phase 7: Quickshell's LockScreen.qml is the active lock (IPC-triggered) -
 -- see quickshell/LockScreen.qml. Manual fallback: `pidof hyprlock || hyprlock`.
 hl.bind(mod .. " + CTRL + L", hl.dsp.exec_cmd("quickshell ipc call lockscreen lock"))
+-- Power button locks instead of powering off - logind's HandlePowerKey is
+-- set to "ignore" (desktop/system.nix) so this bind is what actually fires.
+hl.bind("XF86PowerOff", hl.dsp.exec_cmd("quickshell ipc call lockscreen lock"), { locked = true })
 -- flameshot's capture window supports dragging the screenshot thumbnail
 -- straight into another app (macOS-style), plus copy/save/annotate from the
 -- same window - see waybar/scripts/screenshot.sh (also on the topbar icon).

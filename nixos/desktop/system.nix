@@ -98,6 +98,12 @@ in
   # (SIGTERM then SIGKILL) if it doesn't stop cleanly, just much sooner.
   systemd.services."user@".serviceConfig.TimeoutStopSec = "7s";
 
+  # Power button was powering off the machine (logind's default
+  # HandlePowerKey=poweroff, which fires before Hyprland ever sees the key).
+  # Make logind ignore it so Hyprland's XF86PowerOff bind (hypr/hyprland.lua)
+  # can lock the session instead.
+  services.logind.settings.Login.HandlePowerKey = "ignore";
+
   environment.systemPackages = with pkgs; [
     google-chrome
     firefox

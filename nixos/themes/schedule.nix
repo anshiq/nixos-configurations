@@ -17,7 +17,7 @@
     theme = "forest-green";
   }
   {
-    time = "09:00";
+    time = "12:30";
     theme = "mono";
   }
   {
