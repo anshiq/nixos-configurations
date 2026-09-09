@@ -1,0 +1,14 @@
+[
+  {
+    "name": "OpenCode",
+    "destinations": [
+      {
+        "path": "~/.local/share/opencode/auth.json",
+        "paths": [
+          "~/.local/share/appcredrotator/opencode/v1/profile-1.auth.json",
+          "~/.local/share/appcredrotator/opencode/v1/profile-2.auth.json"
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,8 @@
+{
+  "id": "user.appcredrotator",
+  "name": "App Config Rotator",
+  "kind": "bar-widget",
+  "entryPoint": "BarWidget.qml",
+  "section": "right",
+  "tooltip": "Switch between alternate app configs (Git, SSH, Helix, ...)"
+}
