@@ -57,15 +57,10 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
-    // "Toggle off" glyph (U+F011). Universally present in Nerd Fonts
-    // (Material Design Icons), unlike the more thematic Octicons key
-    // glyph I had earlier - which exists in Nerd Fonts but not in
-    // every build, and a missing glyph makes WidgetButton go invisible
-    // (hasVisualContent: text !== "", and "".charCodeAt(0) is 0 for
-    // a font that has no glyph for that codepoint). Keeping the
-    // bar slot even when the glyph is the empty string is what
-    // `keepSpace: true` is for, but a reliable glyph is simpler.
-    text: "󰐥"
+    // "Swap horizontal" glyph (U+F04E6). Material Design Icons, present
+    // in Nerd Fonts - thematic for profile/config switching (vs the
+    // previous generic toggle-off glyph).
+    text: "󰓦"
     // keepSpace makes the button take a slot even if the glyph is
     // missing in the user's font. Without it, an unrenderable
     // glyph collapses the slot to zero width and the button becomes
