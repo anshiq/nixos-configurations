@@ -278,7 +278,7 @@ PanelWindow {
             id: sharedTooltipLabel
             anchors.centerIn: parent
             text: root.tooltipText
-            color: Colors.brightForeground
+            color: Colors.selectionForeground
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 10
         }

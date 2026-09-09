@@ -8,8 +8,8 @@
   brightForeground = "ffffff";
 
   muted = "444444";
-  selection = "2a2a2a";
-  selectionForeground = "ffffff";
+  selection = "c8c8c8";
+  selectionForeground = "000000";
 
   # No hue anywhere - every "color" slot collapses to the same gray so
   # nothing reads as colored, matching the requested black & white window.

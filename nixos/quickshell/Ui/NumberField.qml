@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls as QQC
 import qs.Commons
+import "../"
 
 Column {
   id: root
@@ -72,8 +73,8 @@ Column {
       text: spin.displayText
       font: spin.font
       color: root.foreground
-      selectionColor: Style.selectionFillFor(root.foreground, root.accent)
-      selectedTextColor: root.foreground
+      selectionColor: Colors.selection
+      selectedTextColor: Colors.selectionForeground
       horizontalAlignment: Qt.AlignHCenter
       verticalAlignment: Qt.AlignVCenter
       readOnly: !spin.editable

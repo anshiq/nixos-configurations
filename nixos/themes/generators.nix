@@ -107,6 +107,7 @@ in
     brightForeground = hex t.brightForeground;
     muted = hex t.muted;
     selection = hex t.selection;
+    selectionForeground = hex t.selectionForeground;
     red = hex t.red;
     green = hex t.green;
     yellow = hex t.yellow;
@@ -155,9 +156,9 @@ in
     "ui.text.focus" = { fg = "${hex t.brightForeground}", modifiers = ["bold"] }
     "ui.cursor.primary" = { fg = "${hex t.background}", bg = "${hex t.cursor}" }
     "ui.cursor.match" = { fg = "${hex t.accent}", modifiers = ["underlined"] }
-    "ui.selection" = { bg = "${hex t.selection}" }
-    "ui.selection.primary" = { bg = "${hex t.selection}" }
-    "ui.cursorline.primary" = { bg = "${hex t.selection}" }
+    "ui.selection" = { fg = "${hex t.selectionForeground}", bg = "${hex t.selection}" }
+    "ui.selection.primary" = { fg = "${hex t.selectionForeground}", bg = "${hex t.selection}" }
+    "ui.cursorline.primary" = { bg = "${hex t.muted}" }
     "ui.linenr" = { fg = "${hex t.muted}" }
     "ui.linenr.selected" = { fg = "${hex t.accent}", modifiers = ["bold"] }
     "ui.statusline" = { fg = "${hex t.foreground}", bg = "${hex t.darkBackground}" }
@@ -224,10 +225,10 @@ in
     preview_hovered = { underline = true }
     find_keyword = { fg = "${hex t.accent}", bold = true, italic = true }
     find_position = { fg = "${hex t.yellow}", bg = "reset", bold = true, italic = true }
-    marker_selected = { fg = "${hex t.green}", bg = "${hex t.selection}" }
-    marker_copied = { fg = "${hex t.yellow}", bg = "${hex t.selection}" }
-    marker_cut = { fg = "${hex t.red}", bg = "${hex t.selection}" }
-    marker_marked = { fg = "${hex t.accent}", bg = "${hex t.selection}" }
+    marker_selected = { fg = "${hex t.green}", bg = "${hex t.darkBackground}" }
+    marker_copied = { fg = "${hex t.yellow}", bg = "${hex t.darkBackground}" }
+    marker_cut = { fg = "${hex t.red}", bg = "${hex t.darkBackground}" }
+    marker_marked = { fg = "${hex t.accent}", bg = "${hex t.darkBackground}" }
     border_symbol = "│"
     border_style = { fg = "${hex t.muted}" }
 

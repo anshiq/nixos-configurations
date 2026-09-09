@@ -12,8 +12,8 @@
   brightForeground = "ffffff";
 
   muted = "555555";
-  selection = "222222";
-  selectionForeground = "ffffff";
+  selection = "e8e8e8";
+  selectionForeground = "000000";
 
   red = "808080";
   green = "b3b3b3";

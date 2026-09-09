@@ -8,8 +8,8 @@
   brightForeground = "d6f0d9";
 
   muted = "3a4d3d";
-  selection = "203023";
-  selectionForeground = "d6f0d9";
+  selection = "6ee08a";
+  selectionForeground = "000000";
 
   red = "f7768e";
   green = "8fd18a";

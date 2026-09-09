@@ -205,14 +205,14 @@ PanelWindow {
                             anchors.verticalCenter: parent.verticalCenter
                             horizontalAlignment: Text.AlignHCenter
                             font.family: "JetBrainsMono Nerd Font"
-                            color: delegateRoot.index === root.currentIndex ? Colors.accent : Colors.foreground
+                            color: delegateRoot.index === root.currentIndex ? Colors.selectionForeground : Colors.foreground
                             text: root.optionIcons[delegateRoot.modelData] ?? ""
                             visible: text !== ""
                         }
 
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            color: Colors.foreground
+                            color: delegateRoot.index === root.currentIndex ? Colors.selectionForeground : Colors.foreground
                             text: delegateRoot.modelData
                         }
                     }
@@ -288,7 +288,7 @@ PanelWindow {
                         color: Colors.selection
                         Text {
                             anchors.centerIn: parent
-                            color: Colors.brightForeground
+                            color: Colors.selectionForeground
                             text: "-"
                         }
                         MouseArea {
@@ -312,7 +312,7 @@ PanelWindow {
                         color: Colors.selection
                         Text {
                             anchors.centerIn: parent
-                            color: Colors.brightForeground
+                            color: Colors.selectionForeground
                             text: "+"
                         }
                         MouseArea {
@@ -334,7 +334,7 @@ PanelWindow {
                     color: Colors.selection
                     Text {
                         anchors.centerIn: parent
-                        color: Colors.foreground
+                        color: Colors.selectionForeground
                         text: "Back"
                     }
                     MouseArea {

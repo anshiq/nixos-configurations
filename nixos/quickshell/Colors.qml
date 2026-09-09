@@ -19,6 +19,7 @@ Scope {
     property color brightForeground: "#c0caf5"
     property color muted: "#414868"
     property color selection: "#292e42"
+    property color selectionForeground: "#000000"
     property color red: "#f7768e"
     property color green: "#9ece6a"
     property color yellow: "#e0af68"
@@ -37,6 +38,7 @@ Scope {
             if (t.brightForeground) root.brightForeground = t.brightForeground;
             if (t.muted) root.muted = t.muted;
             if (t.selection) root.selection = t.selection;
+            if (t.selectionForeground) root.selectionForeground = t.selectionForeground;
             if (t.red) root.red = t.red;
             if (t.green) root.green = t.green;
             if (t.yellow) root.yellow = t.yellow;

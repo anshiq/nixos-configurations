@@ -423,7 +423,7 @@ PanelWindow {
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         text: root.iconFor(row.modelData.signal)
-                        color: row.modelData.inUse ? Colors.green : Colors.foreground
+                        color: (rowArea.containsMouse || row.modelData.inUse) ? Colors.selectionForeground : (row.modelData.inUse ? Colors.green : Colors.foreground)
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 12
                     }
@@ -433,7 +433,7 @@ PanelWindow {
                         width: parent.width - 60
                         elide: Text.ElideRight
                         text: row.modelData.ssid
-                        color: row.modelData.inUse ? Colors.brightForeground : Colors.foreground
+                        color: (rowArea.containsMouse || row.modelData.inUse) ? Colors.selectionForeground : (row.modelData.inUse ? Colors.brightForeground : Colors.foreground)
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 11
                         font.bold: row.modelData.inUse
@@ -442,7 +442,7 @@ PanelWindow {
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         text: row.modelData.secured ? "" : "" // nf-fa-lock
-                        color: Colors.muted
+                        color: (rowArea.containsMouse || row.modelData.inUse) ? Colors.selectionForeground : Colors.muted
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 10
                     }

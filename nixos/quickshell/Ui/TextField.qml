@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import qs.Commons
+import "../"
 
 // Single-line text input with the kit's focus + selection styling. Inherits
 // from Qt Quick Controls TextField so the underlying type's API (text,
@@ -20,7 +21,7 @@ TextField {
 
   property color foreground: Color.foreground
   property color accent: Color.accent
-  property color selectionTint: Style.selectionFillFor(foreground, accent)
+  property color selectionTint: Colors.selection
   property bool password: false
   property real horizontalPadding: Style.spacing.controlPaddingX
   property real verticalPadding: Style.spacing.inputPaddingY
@@ -40,8 +41,8 @@ TextField {
   font.family: Style.font.family
   font.pixelSize: Style.font.body
   color: foreground
-  selectionColor: selectionTint
-  selectedTextColor: foreground
+  selectionColor: Colors.selection
+  selectedTextColor: Colors.selectionForeground
   placeholderTextColor: Qt.darker(foreground, 1.6)
 
   leftPadding: horizontalPadding + Border.left(_borderSpec)

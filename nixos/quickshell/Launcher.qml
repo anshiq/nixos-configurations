@@ -175,7 +175,7 @@ PanelWindow {
                         anchors.verticalCenter: parent.verticalCenter
                         anchors.left: parent.left
                         anchors.leftMargin: 8
-                        color: Colors.foreground
+                        color: delegateRoot.index === ListView.view.currentIndex ? Colors.selectionForeground : Colors.foreground
                         text: root.mode === "drun" ? root.filteredEntries[delegateRoot.index].name : root.filteredEntries[delegateRoot.index]
                     }
 

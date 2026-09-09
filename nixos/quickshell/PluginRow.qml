@@ -110,7 +110,7 @@ RowLayout {
                     id: tooltipLabel
                     anchors.centerIn: parent
                     text: pluginLoader.tooltipText
-                    color: Colors.brightForeground
+                    color: Colors.selectionForeground
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 10
                 }
