@@ -26,31 +26,34 @@ let
   # build time inside the Nix sandbox, on a writable copy (the fetched
   # theme itself is read-only in the store), rather than mutating anything
   # at runtime. "white" was the same choice already made for yazi.
-  papirusNoBlue = pkgs.runCommand "papirus-dark-no-blue" {
-    nativeBuildInputs = [
-      pkgs.papirus-folders
-      pkgs.gtk3
-    ];
-  } ''
-    mkdir -p $out/share/icons
-    # Papirus-Dark's own folder.svg is a *symlink* into the sibling
-    # Papirus (light) theme at some sizes - folders are shared between the
-    # two variants, only genuinely dark-specific icons differ. Copying
-    # Papirus-Dark alone leaves that symlink dangling, which makes `[ -w
-    # folder.svg ]` false and sends papirus-folders down its sudo-reexec
-    # path (fine interactively, fatal in this sandbox with no sudo/tty) -
-    # copying both keeps every such symlink resolvable.
-    cp -r ${pkgs.papirus-icon-theme}/share/icons/Papirus $out/share/icons/Papirus
-    cp -r ${pkgs.papirus-icon-theme}/share/icons/Papirus-Dark $out/share/icons/Papirus-Dark
-    chmod -R u+w $out/share/icons/Papirus $out/share/icons/Papirus-Dark
-    # papirus-folders takes a theme *name*, not a path - it resolves it by
-    # searching $XDG_DATA_DIRS/icons/<name>/index.theme (see its
-    # get_theme_dir()), so point that search at our copy instead of trying
-    # to hand it $out directly.
-    HOME="$TMPDIR" XDG_DATA_DIRS="$out/share" \
-      papirus-folders -o -t Papirus-Dark -C white
-    gtk-update-icon-cache -f -t "$out/share/icons/Papirus-Dark"
-  '';
+  papirusNoBlue =
+    pkgs.runCommand "papirus-dark-no-blue"
+      {
+        nativeBuildInputs = [
+          pkgs.papirus-folders
+          pkgs.gtk3
+        ];
+      }
+      ''
+        mkdir -p $out/share/icons
+        # Papirus-Dark's own folder.svg is a *symlink* into the sibling
+        # Papirus (light) theme at some sizes - folders are shared between the
+        # two variants, only genuinely dark-specific icons differ. Copying
+        # Papirus-Dark alone leaves that symlink dangling, which makes `[ -w
+        # folder.svg ]` false and sends papirus-folders down its sudo-reexec
+        # path (fine interactively, fatal in this sandbox with no sudo/tty) -
+        # copying both keeps every such symlink resolvable.
+        cp -r ${pkgs.papirus-icon-theme}/share/icons/Papirus $out/share/icons/Papirus
+        cp -r ${pkgs.papirus-icon-theme}/share/icons/Papirus-Dark $out/share/icons/Papirus-Dark
+        chmod -R u+w $out/share/icons/Papirus $out/share/icons/Papirus-Dark
+        # papirus-folders takes a theme *name*, not a path - it resolves it by
+        # searching $XDG_DATA_DIRS/icons/<name>/index.theme (see its
+        # get_theme_dir()), so point that search at our copy instead of trying
+        # to hand it $out directly.
+        HOME="$TMPDIR" XDG_DATA_DIRS="$out/share" \
+          papirus-folders -o -t Papirus-Dark -C white
+        gtk-update-icon-cache -f -t "$out/share/icons/Papirus-Dark"
+      '';
 
   # Third-party bar-widget plugins - see ../plugins/default.nix. Read
   # directly (not via IFD on the fetched `src`s - see the activation script
@@ -74,9 +77,9 @@ let
   # committed and evaluation runs through git's filtered source tree rather
   # than the live filesystem.
   builtinPluginDirs = builtins.attrNames (
-    lib.filterAttrs (
-      name: type: type == "directory" && !(externalPlugins ? ${name})
-    ) (builtins.readDir ../quickshell/plugins)
+    lib.filterAttrs (name: type: type == "directory" && !(externalPlugins ? ${name})) (
+      builtins.readDir ../quickshell/plugins
+    )
   );
   builtinPluginManifest =
     dir: builtins.fromJSON (builtins.readFile (../quickshell/plugins + "/${dir}/manifest.json"));
@@ -354,128 +357,143 @@ in
 
   # Static configs deployed verbatim from dedicated directories
   # (same pattern as ./helix and ./yazi).
-  xdg.configFile =
-    {
-      "hypr/hyprland.lua".source = ../hypr/hyprland.lua;
-      # Quickshell replacement for waybar/wofi/mako/hyprlock, migrated in
-      # phases - see /home/nixos/.claude/plans/stateless-wishing-willow.md.
-      # Bar/launcher/power menu/notifications/lock screen all have full parity
-      # now (Phase 7 done - see LockScreen.qml); waybar/wofi are retired.
-      # hyprlock stays installed as a manual fallback for the lock screen
-      # only, not autostarted. Whole directory deployed since the QML config
-      # is split across multiple files (Bar.qml, Colors.qml, per-module files).
-      #
-      # Deliberately an *out-of-store* symlink straight into the working tree
-      # rather than `.source = ../quickshell` (the pattern every other config
-      # here uses). Quickshell reloads QML from disk on the fly, so pointing at
-      # the checkout makes editing a widget or writing a new plugin a
-      # save-and-look loop instead of a `cp -r` + `nixos-rebuild switch` round
-      # trip - which is the entire reason for the plugin system.
-      #
-      # It MUST be declared here rather than hand-made with `ln -s`. A hand-made
-      # symlink is a file home-manager does not own, and checkLinkTargets aborts
-      # the whole activation on one of those *before linking anything*, so every
-      # other file under ~/.config silently stops updating while `nixos-rebuild
-      # switch` still exits 0. That is exactly what happened here, and it is why
-      # the theme-toggle and keybind fixes never reached the running system
-      # despite being committed and built. See home-manager.backupFileExtension
-      # in flake.nix for the second layer of protection.
-      #
-      # Trade-off to know about: the running desktop shell now depends on this
-      # checkout existing at this path. Moving or deleting it leaves the session
-      # with no bar/launcher/lock screen (hyprlock stays installed as the
-      # documented manual fallback - see LockScreen.qml).
-      "quickshell".source = config.lib.file.mkOutOfStoreSymlink "/home/nixos/myprojects/nixos-configurations/nixos/quickshell";
-      "waybar/scripts/power-menu.sh" = {
-        source = ../waybar/scripts/power-menu.sh;
-        executable = true;
-      };
-      "waybar/scripts/theme-switch.sh" = {
-        source = ../waybar/scripts/theme-switch.sh;
-        executable = true;
-      };
-      "waybar/scripts/bluelight-toggle.sh" = {
-        source = ../waybar/scripts/bluelight-toggle.sh;
-        executable = true;
-      };
-      "waybar/scripts/bluelight-status.sh" = {
-        source = ../waybar/scripts/bluelight-status.sh;
-        executable = true;
-      };
-      "waybar/scripts/bluelight-adjust.sh" = {
-        source = ../waybar/scripts/bluelight-adjust.sh;
-        executable = true;
-      };
-      "waybar/scripts/theme-status.sh" = {
-        source = ../waybar/scripts/theme-status.sh;
-        executable = true;
-      };
-      "waybar/scripts/theme-warmth-ramp.sh" = {
-        source = ../waybar/scripts/theme-warmth-ramp.sh;
-        executable = true;
-      };
-      "waybar/scripts/idle-unless-charging.sh" = {
-        source = ../waybar/scripts/idle-unless-charging.sh;
-        executable = true;
-      };
-      "waybar/scripts/battery-notify.sh" = {
-        source = ../waybar/scripts/battery-notify.sh;
-        executable = true;
-      };
-      "waybar/scripts/screenshot.sh" = {
-        source = ../waybar/scripts/screenshot.sh;
-        executable = true;
-      };
-      "waybar/scripts/render-wallpaper.sh" = {
-        source = ../waybar/scripts/render-wallpaper.sh;
-        executable = true;
-      };
-      # Deployed to a stable path so hyprland.lua (verbatim, untemplated) can
-      # point swaybg at it without a Nix store path baked into the Lua file.
-      "wallpapers/wallpaper.png".source = wallpaper;
-      # __TOKEN__ template rendered per-theme by render-wallpaper.sh above -
-      # see that script and the SVG's own header comment.
-      "wallpapers/shortcuts-latest.svg".source = ./wallpapers/shortcuts-latest.svg;
-    }
-    # style.css, ghostty/config, kitty/kitty.conf, hypr/hyprlock.conf, and
-    # hypr/colors.lua are NOT managed directly: each is a runtime symlink
-    # flipped between per-theme variants (generated below) by
-    # theme-switch.sh, so home-manager activation doesn't fight the switcher
-    # while the session is running.
+  xdg.configFile = {
+    "hypr/hyprland.lua".source = ../hypr/hyprland.lua;
+    # Quickshell replacement for waybar/wofi/mako/hyprlock, migrated in
+    # phases - see /home/nixos/.claude/plans/stateless-wishing-willow.md.
+    # Bar/launcher/power menu/notifications/lock screen all have full parity
+    # now (Phase 7 done - see LockScreen.qml); waybar/wofi are retired.
+    # hyprlock stays installed as a manual fallback for the lock screen
+    # only, not autostarted. Whole directory deployed since the QML config
+    # is split across multiple files (Bar.qml, Colors.qml, per-module files).
     #
-    # One variant of each per-theme file is generated per entry in
-    # ../themes/ (see ../themes/generators.nix) - adding a theme there
-    # automatically gets a full file set here, no change needed in this
-    # block.
-    // (lib.concatMapAttrs (name: theme: {
-      "ghostty/config-${name}".text = gen.toGhosttyConfig theme;
-      "kitty/kitty-${name}.conf".text = gen.toKittyConfig theme;
-      "hypr/colors-${name}.lua".text = gen.toHyprColorsLua theme;
-      "hypr/hyprlock-${name}.conf".text = lib.hm.generators.toHyprconf {
-        attrs = hyprlockSettings theme;
-        importantPrefixes = [
-          "$"
-          "bezier"
-          "monitor"
-          "size"
-          "source"
-        ];
-      };
-      "helix/themes/${name}.toml".text = gen.toHelixTheme theme;
-      "yazi/theme-${name}.toml".text = gen.toYaziTheme theme;
-      "lazygit/config-${name}.yml".text = gen.toLazygitTheme theme;
-    }) themes)
-    // {
-      # theme-switch.sh's own view of what themes exist: one name per line
-      # (cycle order for `next`), a "name kind" table (for `toggle`'s
-      # day/night lookup), and a "time name" table (for the no-arg
-      # clock-based lookup, from ../themes/schedule.nix).
-      "waybar/scripts/themes.list".text = lib.concatStringsSep "\n" (builtins.attrNames themes) + "\n";
-      "waybar/scripts/theme-kinds.list".text =
-        lib.concatStringsSep "\n" (lib.mapAttrsToList (name: t: "${name} ${t.kind}") themes) + "\n";
-      "waybar/scripts/schedule.list".text = lib.concatStringsSep "\n" (map (e: "${e.time} ${e.theme}") schedule) + "\n";
+    # Deliberately an *out-of-store* symlink straight into the working tree
+    # rather than `.source = ../quickshell` (the pattern every other config
+    # here uses). Quickshell reloads QML from disk on the fly, so pointing at
+    # the checkout makes editing a widget or writing a new plugin a
+    # save-and-look loop instead of a `cp -r` + `nixos-rebuild switch` round
+    # trip - which is the entire reason for the plugin system.
+    #
+    # It MUST be declared here rather than hand-made with `ln -s`. A hand-made
+    # symlink is a file home-manager does not own, and checkLinkTargets aborts
+    # the whole activation on one of those *before linking anything*, so every
+    # other file under ~/.config silently stops updating while `nixos-rebuild
+    # switch` still exits 0. That is exactly what happened here, and it is why
+    # the theme-toggle and keybind fixes never reached the running system
+    # despite being committed and built. See home-manager.backupFileExtension
+    # in flake.nix for the second layer of protection.
+    #
+    # Trade-off to know about: the running desktop shell now depends on this
+    # checkout existing at this path. Moving or deleting it leaves the session
+    # with no bar/launcher/lock screen (hyprlock stays installed as the
+    # documented manual fallback - see LockScreen.qml).
+    "quickshell".source = config.lib.file.mkOutOfStoreSymlink "/etc/nixos/quickshell";
+    "waybar/scripts/power-menu.sh" = {
+      source = ../waybar/scripts/power-menu.sh;
+      executable = true;
+    };
+    "waybar/scripts/theme-switch.sh" = {
+      source = ../waybar/scripts/theme-switch.sh;
+      executable = true;
+    };
+    "waybar/scripts/bluelight-toggle.sh" = {
+      source = ../waybar/scripts/bluelight-toggle.sh;
+      executable = true;
+    };
+    "waybar/scripts/bluelight-status.sh" = {
+      source = ../waybar/scripts/bluelight-status.sh;
+      executable = true;
+    };
+    "waybar/scripts/bluelight-adjust.sh" = {
+      source = ../waybar/scripts/bluelight-adjust.sh;
+      executable = true;
+    };
+    "waybar/scripts/theme-status.sh" = {
+      source = ../waybar/scripts/theme-status.sh;
+      executable = true;
+    };
+    "waybar/scripts/theme-warmth-ramp.sh" = {
+      source = ../waybar/scripts/theme-warmth-ramp.sh;
+      executable = true;
+    };
+    "waybar/scripts/idle-unless-charging.sh" = {
+      source = ../waybar/scripts/idle-unless-charging.sh;
+      executable = true;
+    };
+    "waybar/scripts/battery-notify.sh" = {
+      source = ../waybar/scripts/battery-notify.sh;
+      executable = true;
+    };
+    "waybar/scripts/screenshot.sh" = {
+      source = ../waybar/scripts/screenshot.sh;
+      executable = true;
+    };
+    "waybar/scripts/render-wallpaper.sh" = {
+      source = ../waybar/scripts/render-wallpaper.sh;
+      executable = true;
     };
 
+    # Deployed to a stable path so hyprland.lua (verbatim, untemplated) can
+    # point swaybg at it without a Nix store path baked into the Lua file.
+    "wallpapers/wallpaper.png".source = wallpaper;
+    # __TOKEN__ template rendered per-theme by render-wallpaper.sh above -
+    # see that script and the SVG's own header comment.
+    "wallpapers/shortcuts-latest.svg".source = ./wallpapers/shortcuts-latest.svg;
+  }
+  # style.css, ghostty/config, kitty/kitty.conf, hypr/hyprlock.conf, and
+  # hypr/colors.lua are NOT managed directly: each is a runtime symlink
+  # flipped between per-theme variants (generated below) by
+  # theme-switch.sh, so home-manager activation doesn't fight the switcher
+  # while the session is running.
+  #
+  # One variant of each per-theme file is generated per entry in
+  # ../themes/ (see ../themes/generators.nix) - adding a theme there
+  # automatically gets a full file set here, no change needed in this
+  # block.
+  // (lib.concatMapAttrs (name: theme: {
+    "ghostty/config-${name}".text = gen.toGhosttyConfig theme;
+    "kitty/kitty-${name}.conf".text = gen.toKittyConfig theme;
+    "hypr/colors-${name}.lua".text = gen.toHyprColorsLua theme;
+    "hypr/hyprlock-${name}.conf".text = lib.hm.generators.toHyprconf {
+      attrs = hyprlockSettings theme;
+      importantPrefixes = [
+        "$"
+        "bezier"
+        "monitor"
+        "size"
+        "source"
+      ];
+    };
+    "helix/themes/${name}.toml".text = gen.toHelixTheme theme;
+    "yazi/theme-${name}.toml".text = gen.toYaziTheme theme;
+    "lazygit/config-${name}.yml".text = gen.toLazygitTheme theme;
+  }) themes)
+  // {
+    # theme-switch.sh's own view of what themes exist: one name per line
+    # (cycle order for `next`), a "name kind" table (for `toggle`'s
+    # day/night lookup), and a "time name" table (for the no-arg
+    # clock-based lookup, from ../themes/schedule.nix).
+    "waybar/scripts/themes.list".text = lib.concatStringsSep "\n" (builtins.attrNames themes) + "\n";
+    "waybar/scripts/theme-kinds.list".text =
+      lib.concatStringsSep "\n" (lib.mapAttrsToList (name: t: "${name} ${t.kind}") themes) + "\n";
+    "waybar/scripts/schedule.list".text =
+      lib.concatStringsSep "\n" (map (e: "${e.time} ${e.theme}") schedule) + "\n";
+  };
+
+  # The App Config Rotator config - plain JSON so the Quickshell plugin
+  # (quickshell/plugins/user.appcredrotator/) can read it with
+  # JSON.parse() and needs no YAML parser or subprocess of any kind; see
+  # ../appcredrotator/README.md for the schema and ../.../Panel.qml's
+  # module comment for the full read/write/apply design. Lives at
+  # $XDG_DATA_HOME/appcredrotator/apps.json so the plugin's hard-coded
+  # `Quickshell.env("HOME") + "/.local/share/appcredrotator/apps.json"`
+  # resolves without any env setup. The plugin also writes its own
+  # state.json next to it at runtime (paths only, no secrets - never
+  # Nix-managed, never committed). Edit ../appcredrotator/apps.json in
+  # this repo and `nixos-rebuild switch` to change the panel's contents
+  # declaratively.
+  xdg.dataFile."appcredrotator/apps.json".source =
+    config.lib.file.mkOutOfStoreSymlink /etc/nixos/appcredrotator/apps.json;
   # quickshell/ is deployed as a single out-of-store symlink to the live
   # checkout above (so QML edits are picked up without a rebuild), which
   # means home-manager can't override individual files inside it the way
@@ -488,7 +506,7 @@ in
     lib.concatStringsSep "\n" (
       lib.mapAttrsToList (name: theme: ''
         install -m 644 ${pkgs.writeText "theme-${name}.json" (builtins.toJSON (gen.toQuickshellTheme theme))} \
-          "/home/nixos/myprojects/nixos-configurations/nixos/quickshell/theme-${name}.json"
+          "/etc/nixos/quickshell/theme-${name}.json"
       '') themes
     )
   );
@@ -517,11 +535,11 @@ in
   #   removes directories this activation itself created.
   home.activation.quickshellPlugins = lib.hm.dag.entryAfter [ "writeBoundary" ] (
     let
-      pluginsDir = "/home/nixos/myprojects/nixos-configurations/nixos/quickshell/plugins";
+      pluginsDir = "/etc/nixos/quickshell/plugins";
     in
     ''
       install -m 644 ${pkgs.writeText "plugin-registry.json" (builtins.toJSON pluginRegistry)} \
-        "/home/nixos/myprojects/nixos-configurations/nixos/quickshell/plugin-registry.json"
+        "/etc/nixos/quickshell/plugin-registry.json"
 
       for existing in "${pluginsDir}"/*; do
         [ -f "$existing/.nix-managed" ] || continue
@@ -582,122 +600,120 @@ in
   # "systemd.user.services.hypridle = ..." and a later flat
   # "systemd.user.services = ..." as conflicting definitions of the same
   # path.
-  systemd.user.services =
-    {
-      hypridle = {
-        Unit = {
-          ConditionEnvironment = "WAYLAND_DISPLAY";
-          Description = "hypridle";
-          After = [ config.wayland.systemd.target ];
-          PartOf = [ config.wayland.systemd.target ];
-        };
-        Install.WantedBy = [ config.wayland.systemd.target ];
-        Service = {
-          ExecStartPre = "%h/.config/quickshell/scripts/idle-settings.sh generate";
-          ExecStart = "${pkgs.hypridle}/bin/hypridle";
-          Restart = "always";
-          RestartSec = "10";
-        };
+  systemd.user.services = {
+    hypridle = {
+      Unit = {
+        ConditionEnvironment = "WAYLAND_DISPLAY";
+        Description = "hypridle";
+        After = [ config.wayland.systemd.target ];
+        PartOf = [ config.wayland.systemd.target ];
       };
-      # Polls battery capacity every minute and notifies once at 15% and
-      # again at 5% while discharging (see waybar/scripts/battery-notify.sh)
-      # - the script itself tracks state so each threshold only fires once
-      # per discharge cycle.
-      battery-notify = {
-        Unit.Description = "Notify on low battery";
+      Install.WantedBy = [ config.wayland.systemd.target ];
+      Service = {
+        ExecStartPre = "%h/.config/quickshell/scripts/idle-settings.sh generate";
+        ExecStart = "${pkgs.hypridle}/bin/hypridle";
+        Restart = "always";
+        RestartSec = "10";
+      };
+    };
+    # Polls battery capacity every minute and notifies once at 15% and
+    # again at 5% while discharging (see waybar/scripts/battery-notify.sh)
+    # - the script itself tracks state so each threshold only fires once
+    # per discharge cycle.
+    battery-notify = {
+      Unit.Description = "Notify on low battery";
+      Service = {
+        Type = "oneshot";
+        ExecStart = "${config.xdg.configHome}/waybar/scripts/battery-notify.sh";
+      };
+    };
+    # Real Omarchy has a built-in `omarchy.clipboard` service that watches
+    # the clipboard and writes ~/.local/state/omarchy/clipboard-history.json;
+    # this system has none, so the io.github.vuhuy.clipboard-manager bar
+    # plugin (manually plugin.sh-added, not Nix-declared - see
+    # plugin-layout.json) had an icon but no history to show. `wl-paste
+    # --watch` runs the sync script below once per clipboard change,
+    # feeding it the new text on stdin.
+    clipboard-history = {
+      Unit = {
+        ConditionEnvironment = "WAYLAND_DISPLAY";
+        Description = "Sync clipboard changes into Omarchy's clipboard-history.json";
+        After = [ config.wayland.systemd.target ];
+        PartOf = [ config.wayland.systemd.target ];
+      };
+      Install.WantedBy = [ config.wayland.systemd.target ];
+      Service = {
+        ExecStart = "${pkgs.wl-clipboard}/bin/wl-paste --type text --watch %h/.config/quickshell/scripts/clipboard-history-sync.sh";
+        Restart = "always";
+        RestartSec = "10";
+      };
+    };
+    # Nudges hyprsunset's warmth forward during sunset-night's 15:00-18:00
+    # ramp window (see waybar/scripts/theme-warmth-ramp.sh) - a no-op the
+    # rest of the day, so the timer below just runs it continuously.
+    theme-warmth-ramp = {
+      Unit.Description = "Ramp hyprsunset warmth during sunset-night's opening hours";
+      Service = {
+        Type = "oneshot";
+        ExecStart = "%h/.config/waybar/scripts/theme-warmth-ramp.sh";
+      };
+    };
+  }
+  # One timer+service pair per ../themes/schedule.nix entry - applies to
+  # ghostty, kitty, hyprlock, Quickshell (bar/launcher/notifications), and
+  # Hyprland's own border colors (see waybar/scripts/theme-switch.sh).
+  # `systemctl --user list-timers` shows all of them; each is
+  # independently inspectable as theme-<name>.timer/.service. Also run
+  # once at login (see hypr/hyprland.lua autostart, no-arg
+  # theme-switch.sh) so the session starts on whichever theme's window
+  # contains the current time, without waiting for the next timer tick.
+  // lib.listToAttrs (
+    map (entry: {
+      name = "theme-${entry.theme}";
+      value = {
+        Unit.Description = "Switch the desktop to the ${entry.theme} theme";
         Service = {
           Type = "oneshot";
-          ExecStart = "${config.xdg.configHome}/waybar/scripts/battery-notify.sh";
+          ExecStart = "%h/.config/waybar/scripts/theme-switch.sh ${entry.theme}";
         };
       };
-      # Real Omarchy has a built-in `omarchy.clipboard` service that watches
-      # the clipboard and writes ~/.local/state/omarchy/clipboard-history.json;
-      # this system has none, so the io.github.vuhuy.clipboard-manager bar
-      # plugin (manually plugin.sh-added, not Nix-declared - see
-      # plugin-layout.json) had an icon but no history to show. `wl-paste
-      # --watch` runs the sync script below once per clipboard change,
-      # feeding it the new text on stdin.
-      clipboard-history = {
-        Unit = {
-          ConditionEnvironment = "WAYLAND_DISPLAY";
-          Description = "Sync clipboard changes into Omarchy's clipboard-history.json";
-          After = [ config.wayland.systemd.target ];
-          PartOf = [ config.wayland.systemd.target ];
-        };
-        Install.WantedBy = [ config.wayland.systemd.target ];
-        Service = {
-          ExecStart = "${pkgs.wl-clipboard}/bin/wl-paste --type text --watch %h/.config/quickshell/scripts/clipboard-history-sync.sh";
-          Restart = "always";
-          RestartSec = "10";
-        };
-      };
-      # Nudges hyprsunset's warmth forward during sunset-night's 15:00-18:00
-      # ramp window (see waybar/scripts/theme-warmth-ramp.sh) - a no-op the
-      # rest of the day, so the timer below just runs it continuously.
-      theme-warmth-ramp = {
-        Unit.Description = "Ramp hyprsunset warmth during sunset-night's opening hours";
-        Service = {
-          Type = "oneshot";
-          ExecStart = "%h/.config/waybar/scripts/theme-warmth-ramp.sh";
-        };
-      };
-    }
-    # One timer+service pair per ../themes/schedule.nix entry - applies to
-    # ghostty, kitty, hyprlock, Quickshell (bar/launcher/notifications), and
-    # Hyprland's own border colors (see waybar/scripts/theme-switch.sh).
-    # `systemctl --user list-timers` shows all of them; each is
-    # independently inspectable as theme-<name>.timer/.service. Also run
-    # once at login (see hypr/hyprland.lua autostart, no-arg
-    # theme-switch.sh) so the session starts on whichever theme's window
-    # contains the current time, without waiting for the next timer tick.
-    // lib.listToAttrs (
-      map (entry: {
-        name = "theme-${entry.theme}";
-        value = {
-          Unit.Description = "Switch the desktop to the ${entry.theme} theme";
-          Service = {
-            Type = "oneshot";
-            ExecStart = "%h/.config/waybar/scripts/theme-switch.sh ${entry.theme}";
-          };
-        };
-      }) schedule
-    );
+    }) schedule
+  );
 
-  systemd.user.timers =
-    {
-      battery-notify = {
-        Unit.Description = "Check battery level every minute";
+  systemd.user.timers = {
+    battery-notify = {
+      Unit.Description = "Check battery level every minute";
+      Timer = {
+        OnBootSec = "1m";
+        OnUnitActiveSec = "1m";
+      };
+      Install.WantedBy = [ "timers.target" ];
+    };
+    theme-warmth-ramp = {
+      Unit.Description = "Check the hyprsunset warmth ramp every 10 minutes";
+      Timer = {
+        OnBootSec = "1m";
+        OnUnitActiveSec = "10m";
+      };
+      Install.WantedBy = [ "timers.target" ];
+    };
+  }
+  // lib.listToAttrs (
+    map (entry: {
+      name = "theme-${entry.theme}";
+      value = {
+        Unit.Description = "Trigger the ${entry.theme} theme at ${entry.time}";
         Timer = {
-          OnBootSec = "1m";
-          OnUnitActiveSec = "1m";
+          OnCalendar = "*-*-* ${entry.time}:00";
+          # Catches up on a transition missed while asleep/off at the
+          # trigger time, rather than staying on the previous theme until
+          # the next one fires.
+          Persistent = true;
         };
         Install.WantedBy = [ "timers.target" ];
       };
-      theme-warmth-ramp = {
-        Unit.Description = "Check the hyprsunset warmth ramp every 10 minutes";
-        Timer = {
-          OnBootSec = "1m";
-          OnUnitActiveSec = "10m";
-        };
-        Install.WantedBy = [ "timers.target" ];
-      };
-    }
-    // lib.listToAttrs (
-      map (entry: {
-        name = "theme-${entry.theme}";
-        value = {
-          Unit.Description = "Trigger the ${entry.theme} theme at ${entry.time}";
-          Timer = {
-            OnCalendar = "*-*-* ${entry.time}:00";
-            # Catches up on a transition missed while asleep/off at the
-            # trigger time, rather than staying on the previous theme until
-            # the next one fires.
-            Persistent = true;
-          };
-          Install.WantedBy = [ "timers.target" ];
-        };
-      }) schedule
-    );
+    }) schedule
+  );
 
   # Package + PAM wiring only - no `settings` here, since that generates
   # ~/.config/hypr/hyprlock.conf directly and would collide with the
@@ -757,8 +773,8 @@ in
     # override the theme's own definitions as long as this file loads after
     # it - home-manager appends gtk.css after the theme import.
     gtk3.extraCss = ''
-      @define-color theme_selected_bg_color #6b6b6b;
-      @define-color theme_selected_fg_color #ffffff;
+      @define-color theme_selected_bg_color #c8c8c8;
+      @define-color theme_selected_fg_color #000000;
       @define-color link_color #cccccc;
       @define-color visited_link_color #999999;
     '';

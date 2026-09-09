@@ -112,6 +112,7 @@ in
     networkmanagerapplet
     vscode
     teams-for-linux
+    pgadmin4
   ];
 
 }

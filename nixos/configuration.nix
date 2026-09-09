@@ -217,6 +217,7 @@
     curl
     wget
     lsof
+    fastfetch
 
     # Modern CLI tools
     eza
@@ -249,6 +250,9 @@
 
     # QEMU/KVM GUI (rootless session libvirtd enabled above)
     gnome-boxes
+
+    maven
+    zoxide
   ];
 
   environment.sessionVariables.XKB_CONFIG_ROOT = "${pkgs.xkeyboard-config}/share/X11/xkb";
@@ -258,6 +262,12 @@
   ############################
 
   programs.git.enable = true;
+
+  ## ZOXIDE
+
+  programs.zoxide.enable = true;
+  programs.zoxide.enableBashIntegration = true;
+  programs.zoxide.enableFishIntegration = true;
 
   ############################
   ## SSH
