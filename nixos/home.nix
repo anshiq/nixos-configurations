@@ -26,6 +26,7 @@ in
   # Helix itself + the LSPs/formatters your languages.toml references
   home.packages = with pkgs; [
     helix
+    ngrok
 
     # LSPs
     typescript-language-server
@@ -252,6 +253,101 @@ in
                   echo "Already exists: $filepath"
               end
           end
+        '';
+      };
+
+      igrep = {
+        description = "grep -r that ignores common junk dirs (.git, .m2, node_modules, etc) by default";
+        body = ''
+          grep --color=auto -r \
+              --exclude-dir=.git \
+              --exclude-dir=.m2 \
+              --exclude-dir=.gradle \
+              --exclude-dir=node_modules \
+              --exclude-dir=.venv \
+              --exclude-dir=venv \
+              --exclude-dir=__pycache__ \
+              --exclude-dir=dist \
+              --exclude-dir=build \
+              --exclude-dir=target \
+              --exclude-dir=.next \
+              --exclude-dir=.idea \
+              --exclude-dir=vendor \
+              $argv
+        '';
+      };
+
+      ifind = {
+        description = "find that prunes common junk dirs (.git, .m2, node_modules, etc) by default";
+        body = ''
+          set -l dir "."
+          if test (count $argv) -gt 0; and not string match -q -- "-*" $argv[1]
+              set dir $argv[1]
+              set -e argv[1]
+          end
+
+          find $dir \( \
+              -name .git -o \
+              -name .m2 -o \
+              -name .gradle -o \
+              -name node_modules -o \
+              -name .venv -o \
+              -name venv -o \
+              -name __pycache__ -o \
+              -name dist -o \
+              -name build -o \
+              -name target -o \
+              -name .next -o \
+              -name .idea -o \
+              -name vendor \
+          \) -prune -o $argv -print
+        '';
+      };
+
+      irg = {
+        description = "ripgrep that ignores common junk dirs (.m2, node_modules, etc) even when not gitignored";
+        body = ''
+          rg --glob='!.git' \
+              --glob='!.m2' \
+              --glob='!.gradle' \
+              --glob='!node_modules' \
+              --glob='!.venv' \
+              --glob='!venv' \
+              --glob='!__pycache__' \
+              --glob='!dist' \
+              --glob='!build' \
+              --glob='!target' \
+              --glob='!.next' \
+              --glob='!.idea' \
+              --glob='!vendor' \
+              $argv
+        '';
+      };
+
+      ifd = {
+        description = "fd that ignores common junk dirs (.m2, node_modules, etc) even when not gitignored";
+        body = ''
+          fd --exclude=.git \
+              --exclude=.m2 \
+              --exclude=.gradle \
+              --exclude=node_modules \
+              --exclude=.venv \
+              --exclude=venv \
+              --exclude=__pycache__ \
+              --exclude=dist \
+              --exclude=build \
+              --exclude=target \
+              --exclude=.next \
+              --exclude=.idea \
+              --exclude=vendor \
+              $argv
+        '';
+      };
+
+      itree = {
+        description = "tree that ignores common junk dirs (.git, .m2, node_modules, etc) by default";
+        body = ''
+          tree -I '.git|.m2|.gradle|node_modules|.venv|venv|__pycache__|dist|build|target|.next|.idea|vendor' $argv
         '';
       };
 
