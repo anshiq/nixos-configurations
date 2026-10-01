@@ -168,8 +168,20 @@ hyprctl eval "hl.config({ general = { col = { active_border = { colors = { \"rgb
 # of its own, so a symlink/file swap alone would leave the old image showing
 # until the next full session restart.
 "$scripts_dir/render-wallpaper.sh" "$theme_json"
-{ pgrep -x swaybg >/dev/null && pkill -x swaybg; } || true
-setsid -f swaybg -i "$HOME/.local/state/wallpaper/wallpaper.png" -m fill >/dev/null 2>&1 || true
+#
+# swaybg is launched as its own transient user unit (systemd-run), not a
+# bare `setsid -f` child: when this script runs from a scheduled
+# theme-<name>.service (Type=oneshot, KillMode=control-group), systemd kills
+# everything left in that cgroup on exit - setsid doesn't escape it - which
+# took the fresh swaybg down with the service. A previous swaybg may be
+# either our unit (stopped first) or the one hyprland.lua autostarts at login
+# (pkill'd).
+systemctl --user stop swaybg.service >/dev/null 2>&1 || true
+# Nix wraps the binary, so its process name is ".swaybg-wrapped", not "swaybg".
+pkill -x '\.?swaybg(-wrapped)?' >/dev/null 2>&1 || true
+systemd-run --user --quiet --collect --unit=swaybg \
+  swaybg -i "$HOME/.local/state/wallpaper/wallpaper.png" -m fill >/dev/null 2>&1 \
+  || setsid -f swaybg -i "$HOME/.local/state/wallpaper/wallpaper.png" -m fill >/dev/null 2>&1 || true
 
 kind=$(awk -v n="$mode" '$1==n {print $2}' "$kinds_file")
 
