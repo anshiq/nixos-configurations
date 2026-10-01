@@ -113,6 +113,21 @@ in
     vscode
     teams-for-linux
     pgadmin4
+
+    # Networking tools (curl, wget, lsof, openssh are in configuration.nix)
+    net-tools # ifconfig, netstat, route, arp
+    iproute2
+    iputils
+    ethtool
+    bind # dig, nslookup, host (dnsutils is an alias of this)
+    netcat
+    socat
+    nmap
+    tcpdump
+    wireshark-cli
+    httpie
+    traceroute
+    iperf3
   ];
 
 }

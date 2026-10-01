@@ -115,6 +115,8 @@ in
     # awscli
     awscli2
 
+    ueberzugpp
+
     # The real `omarchy` CLI (theme/font/plugin/bluelight/capture/system/
     # power) - see scripts/omarchy. Replaces the old fish-only
     # `omarchy plugin`-only shim; it delegates to waybar/scripts/*.sh and
