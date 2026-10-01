@@ -16,7 +16,10 @@ let
   fallbackTheme = (builtins.head schedule).theme;
 in
 {
-  imports = [ ./desktop/home.nix ];
+  imports = [
+    ./desktop/home.nix
+    ./plugins/cli.nix
+  ];
 
   home.stateVersion = "26.05";
 
