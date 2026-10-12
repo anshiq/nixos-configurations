@@ -113,6 +113,8 @@ in
     vscode
     teams-for-linux
     pgadmin4
+    tigervnc
+    xinit
 
     # Networking tools (curl, wget, lsof, openssh are in configuration.nix)
     net-tools # ifconfig, netstat, route, arp

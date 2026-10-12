@@ -19,6 +19,7 @@ in
   imports = [
     ./desktop/home.nix
     ./plugins/cli.nix
+    ./ytermusic.nix
   ];
 
   home.stateVersion = "26.05";
@@ -227,6 +228,7 @@ in
 
 
       set -gx VISUAL $EDITOR
+      set -gx TZDIR /etc/zoneinfo
     '';
 
     functions = {

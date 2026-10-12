@@ -21,6 +21,8 @@
     "user.power",
     "io.github.alexdont.battery-limiter",
     "io.github.vuhuy.clipboard-manager",
-    "user.appcredrotator"
+    "user.appcredrotator",
+    "wszaq.locals",
+    "io.github.gabepsilva.user-services"
   ]
 }
