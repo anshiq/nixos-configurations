@@ -58,6 +58,7 @@
     gdk-pixbuf
     harfbuzz
     dig
+    openssl
 
     # python native extensions
     libffi

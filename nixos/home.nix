@@ -132,6 +132,11 @@ in
   xdg.configFile."helix/config.toml".source = ./helix/config.toml;
   xdg.configFile."helix/languages.toml".source = ./helix/languages.toml;
 
+  xdg.configFile."opencode/AGENTS.md".source =
+    config.lib.file.mkOutOfStoreSymlink /etc/nixos/.claude/CLAUDE.md;
+  home.file.".claude/CLAUDE.md".source =
+    config.lib.file.mkOutOfStoreSymlink /etc/nixos/.claude/CLAUDE.md;
+
   ############################################################
   ## Fish shell
   ############################################################
