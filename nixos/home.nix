@@ -143,11 +143,12 @@ in
   # top (with false it dumps everything and the start scrolls away). Piped
   # output is still printed directly. The style is set by the glow wrapper
   # above (-s dark), as the config key is ignored when stdout isn't a TTY.
+  # No `width`: a fixed width clips or mis-wraps text in terminals narrower
+  # than it; unset, glow wraps to the terminal width (capped at 120).
   xdg.configFile."glow/glow.yml".text = ''
     style: "dark"
     mouse: false
     pager: true
-    width: 80
     all: false
   '';
 
