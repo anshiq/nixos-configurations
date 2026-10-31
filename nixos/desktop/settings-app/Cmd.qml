@@ -5,6 +5,9 @@ import Quickshell.Io
 // fires once the process has exited AND both output streams have been fully
 // read. (Reporting on exit alone races the stream readers: short outputs
 // arrive in time, longer ones are silently truncated to "".)
+// A missing program finishes with code 127 and "<name>: command not found"
+// on stderr instead of never finishing (some commands the pages call are
+// installed by other modules and may be absent).
 Process {
     id: root
     signal finished(int code, string out, string err)
@@ -25,7 +28,7 @@ Process {
         _exited = false;
         _outDone = false;
         _errDone = false;
-        command = args;
+        command = ["sh", "-c", 'command -v "$1" >/dev/null 2>&1 || { printf "%s: command not found\\n" "$1" >&2; exit 127; }; exec "$@"', "sh"].concat(args);
         running = true;
         return true;
     }

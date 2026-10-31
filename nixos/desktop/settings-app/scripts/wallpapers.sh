@@ -11,7 +11,7 @@ repo=$(cd -P "$(dirname "$0")/../.." && pwd -P)/wallpapers
 user="$HOME/Pictures/Wallpapers"
 mkdir -p "$user" 2>/dev/null
 
-state="$HOME/.local/state/quickshell/lockscreen.json"
+state="$HOME/.local/state/desktop/lockscreen.json"
 [ -r "$state" ] && echo "state $(tr -d '\n' <"$state")"
 
 for d in "$repo" "$user"; do

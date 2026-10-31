@@ -1,14 +1,14 @@
 // Display: backlight brightness, night light (hyprsunset), connected monitors.
 //
-// Night light shares its state with the bar's blue-light widget and the theme
-// switcher: the saved temperature lives in ~/.cache/waybar-bluelight-temp and
-// the on/off switch is the same bluelight-toggle.sh, so all three stay in
-// agreement. Monitors are read-only: layout/scale/refresh live in
+// Night light goes through the `bluelight` command, the same one the bar and
+// the theme switcher use, so all of them stay in agreement. Monitors are
+// read-only: layout/scale/refresh live in
 // hypr/hyprland.lua (Nix-deployed), so a live change here would not survive a
 // reload and is better edited at the source.
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import ".."
 
 Page {
@@ -22,21 +22,30 @@ Page {
     property int brightness: 50
     property int wantBrightness: -1
 
+    property bool nightOk: true
     property bool nightOn: false
     property int nightTemp: 4000
     property var monitors: []
 
+    function readNight() {
+        nlRead.run(["bluelight", "status", "--json"]);
+    }
+
     function refresh() {
         blRead.run(["brightnessctl", "-m", "-c", "backlight"]);
-        nlRead.run(["bash", "-c", `if pgrep -x hyprsunset >/dev/null; then echo on; else echo off; fi; cat "${page.home}/.cache/waybar-bluelight-temp" 2>/dev/null || echo 4000`]);
+        readNight();
+    }
+
+    Component.onCompleted: {
+        refresh();
         mon.run(["hyprctl", "monitors", "-j"]);
     }
 
-    Component.onCompleted: refresh()
-
+    // Brightness keys and the bar can change these behind our back; re-read
+    // while the page is shown (it is destroyed when another page opens).
     Timer {
         interval: 4000
-        running: true
+        running: page.visible
         repeat: true
         onTriggered: page.refresh()
     }
@@ -85,23 +94,32 @@ Page {
     Cmd {
         id: nlRead
         onFinished: (code, out) => {
-            const lines = out.trim().split("\n");
-            page.nightOn = lines[0] === "on";
-            const t = parseInt(lines[1], 10);
-            if (!isNaN(t) && !nlSetTemp.running)
-                page.nightTemp = t;
+            try {
+                const j = JSON.parse(out);
+                page.nightOk = true;
+                page.nightOn = !!j.on;
+                const t = parseInt(j.temp, 10);
+                if (!isNaN(t) && !nlSetTemp.running && nlThrottle.pending < 0)
+                    page.nightTemp = t;
+            } catch (e) {
+                page.nightOk = false;
+                page.nightOn = false;
+            }
         }
     }
 
     Cmd {
         id: nlToggle
-        onFinished: nlRead.run(["bash", "-c", `if pgrep -x hyprsunset >/dev/null; then echo on; else echo off; fi; cat "${page.home}/.cache/waybar-bluelight-temp" 2>/dev/null || echo 4000`])
+        onFinished: page.readNight()
     }
 
-    // Same two steps as bluelight-adjust.sh: persist the temperature, and
-    // apply it live if the filter is currently running.
+    // `bluelight set` saves the temperature and applies it if the filter is on.
     Cmd {
         id: nlSetTemp
+        onFinished: {
+            if (nlThrottle.pending >= 0)
+                nlThrottle.restart();
+        }
     }
 
     Timer {
@@ -113,8 +131,16 @@ Page {
                 return;
             const t = pending;
             pending = -1;
-            nlSetTemp.run(["bash", "-c", `mkdir -p "${page.home}/.cache"; echo "$1" > "${page.home}/.cache/waybar-bluelight-temp"; if pgrep -x hyprsunset >/dev/null; then hyprctl hyprsunset temperature "$1" >/dev/null 2>&1; fi`, "_", String(t)]);
+            nlSetTemp.run(["bluelight", "set", String(t)]);
         }
+    }
+
+    // The saved temperature; a change from the bar shows up immediately.
+    FileView {
+        path: `${page.home}/.local/state/desktop/bluelight-temp`
+        watchChanges: true
+        printErrors: false
+        onFileChanged: page.readNight()
     }
 
     // ---- monitors -----------------------------------------------------------
@@ -194,17 +220,19 @@ Page {
             first: true
             icon: Icons.nightLight
             title: "Warm the screen colors"
-            subtitle: "Reduces blue light. Night themes switch it on automatically."
+            subtitle: page.nightOk ? "Reduces blue light. Night themes switch it on automatically." : "Unavailable: the bluelight command was not found or did not answer."
             Toggle {
                 checked: page.nightOn
                 busy: nlToggle.running
-                onToggled: nlToggle.run([page.home + "/.config/waybar/scripts/bluelight-toggle.sh"])
+                enabled: page.nightOk
+                onToggled: nlToggle.run(["bluelight", "toggle"])
             }
         }
         Item {
             Layout.fillWidth: true
             implicitHeight: 64
-            opacity: page.nightOn ? 1 : 0.55
+            enabled: page.nightOk
+            opacity: !page.nightOk ? 0.4 : (page.nightOn ? 1 : 0.55)
             RowLayout {
                 anchors.fill: parent
                 anchors.leftMargin: Theme.pad

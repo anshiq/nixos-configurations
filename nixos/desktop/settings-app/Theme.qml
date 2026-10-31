@@ -1,9 +1,8 @@
 // Palette + metrics for the settings app.
 //
 // The palette is read from the SAME file the bar uses
-// (~/.local/state/quickshell/theme.json, overwritten by theme-switch.sh -
-// see quickshell/Colors.qml), so this window re-skins live when the theme
-// changes. This app is its own Quickshell process and deliberately does not
+// (~/.local/state/desktop/theme.json, overwritten by theme-switch), so this
+// window re-skins live when the theme changes. This app is its own Quickshell process and deliberately does not
 // import the shell's Colors singleton: a relative import across config
 // roots breaks when ~/.config/settings-app is a symlink, and a standalone
 // app should keep working even if the shell is mid-edit.
@@ -15,7 +14,7 @@ import Quickshell.Io
 Scope {
     id: root
 
-    // Same defaults as quickshell/Colors.qml - only visible for the instant
+    // Fallback palette - only visible for the instant
     // before theme.json is read, or if it is missing.
     property color background: "#1a1b26"
     property color foreground: "#a9b1d6"
@@ -71,8 +70,8 @@ Scope {
             if (t.yellow) root.yellow = t.yellow;
             retry.stop();
         } catch (e) {
-            // Torn read while theme-switch.sh is mid-write: keep the last good
-            // palette and come back for it (same recovery as Colors.qml).
+            // Torn read while theme-switch is mid-write: keep the last good
+            // palette and come back for it.
             retry.restart();
         }
     }
@@ -96,7 +95,7 @@ Scope {
 
     FileView {
         id: themeFile
-        path: `${Quickshell.env("HOME")}/.local/state/quickshell/theme.json`
+        path: `${Quickshell.env("HOME")}/.local/state/desktop/theme.json`
         watchChanges: true
         printErrors: false
         onFileChanged: reload()
