@@ -439,6 +439,15 @@ in
               set theme (cat $theme_file)
           end
 
+          # Session history cap: keep only the 15 newest EXITED (resurrectable)
+          # sessions, delete the rest. zellij has no built-in limit. Live
+          # sessions are never touched (no --force, EXITED lines only).
+          # `--reverse` lists newest first, so skip the first 15.
+          for old in (command zellij list-sessions --no-formatting --reverse 2>/dev/null \
+                  | string match -r '^\S+(?= .*\(EXITED)' | tail -n +16)
+              command zellij delete-session $old >/dev/null 2>&1
+          end
+
           # zellij 0.44 has no top-level --theme flag; overriding it means
           # appending the `options` subcommand, which only applies when
           # starting a brand-new session - it can't be chained after
