@@ -148,6 +148,14 @@ in
       file-roller
       p7zip
       xdg-terminal-exec
+
+      # Everyday apps
+      zathura # PDF viewer (mupdf backend)
+      loupe # image viewer
+      gnome-calculator
+      gnome-disk-utility
+      keepassxc # offline password manager (KeePass .kdbx)
+      grim # Wayland screenshot CLI
     ]);
 
   home.sessionVariables = {
@@ -494,6 +502,15 @@ in
       "audio/flac" = "mpv.desktop";
       "audio/x-wav" = "mpv.desktop";
       "audio/ogg" = "mpv.desktop";
+      "application/pdf" = "org.pwmt.zathura.desktop";
+      "image/png" = "org.gnome.Loupe.desktop";
+      "image/jpeg" = "org.gnome.Loupe.desktop";
+      "image/gif" = "org.gnome.Loupe.desktop";
+      "image/webp" = "org.gnome.Loupe.desktop";
+      "image/svg+xml" = "org.gnome.Loupe.desktop";
+      "image/bmp" = "org.gnome.Loupe.desktop";
+      "image/avif" = "org.gnome.Loupe.desktop";
+      "application/x-keepass2" = "org.keepassxc.KeePassXC.desktop";
     };
   };
 
@@ -534,5 +551,20 @@ in
       @define-color link_color #cccccc;
       @define-color visited_link_color #999999;
     '';
+
+    # Thunar's sidebar "Places" list (~/.config/gtk-3.0/bookmarks). Declared
+    # here, so folders dragged into the sidebar in Thunar don't persist -
+    # add them to this list instead. Format: "<uri> [label]".
+    gtk3.bookmarks =
+      let
+        home = "file://${config.home.homeDirectory}";
+      in
+      [
+        "${home}/Downloads"
+        "${home}/Pictures"
+        "${home}/Videos"
+        "${home}/Desktop"
+        "file:///etc/nixos NixOS Config"
+      ];
   };
 }

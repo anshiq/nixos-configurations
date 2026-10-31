@@ -217,6 +217,18 @@
     gnome-boxes
 
     maven
+
+    # Text / file tools
+    sd # intuitive find-and-replace (sed alternative)
+    delta # git diff pager, wired up in programs.git.config below
+
+    # Sync & backup
+    rsync
+    rclone
+    restic
+
+    # Windows-formatted drives (read/write NTFS)
+    ntfs3g
   ];
 
   environment.sessionVariables = {
@@ -231,6 +243,17 @@
   ############################
 
   programs.git.enable = true;
+  # delta as the pager for diff/log/show/blame (system gitconfig; ~/.gitconfig
+  # still overrides).
+  programs.git.config = {
+    core.pager = "delta";
+    interactive.diffFilter = "delta --color-only";
+    delta = {
+      navigate = true;
+      line-numbers = true;
+    };
+    merge.conflictStyle = "zdiff3";
+  };
 
   ############################
   ## Zoxide
@@ -265,6 +288,23 @@
     "nix-command"
     "flakes"
   ];
+
+  # Keep the store from growing without bound: weekly GC of anything older
+  # than 14 days (current + recent generations stay), and hard-link dedupe.
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 14d";
+  };
+  nix.optimise.automatic = true;
+
+  # SSD TRIM, compressed swap in RAM, and firmware updates (`fwupdmgr`).
+  services.fstrim.enable = true;
+  zramSwap.enable = true;
+  services.fwupd.enable = true;
+
+  # LocalSend (phone <-> PC file sharing); the module opens its port, 53317.
+  programs.localsend.enable = true;
 
   ############################
   ## Locale
