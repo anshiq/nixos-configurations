@@ -281,6 +281,16 @@ hl.window_rule({
   keep_aspect_ratio = true,
 })
 
+-- float-terminal (desktop/scripts/float-terminal.sh): the terminal Thunar's
+-- "Open Terminal Here" and terminal-only apps opened from it use.
+hl.window_rule({
+  name  = "floating-terminal",
+  match = { class = "^dev.nixos.floatterm$" },
+  float  = true,
+  center = true,
+  size   = "900 560",
+})
+
 hl.window_rule({
   name  = "browser-tiled",
   match = { class = "^(google-chrome|Google-chrome|firefox)$" },

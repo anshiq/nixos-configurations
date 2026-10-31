@@ -158,6 +158,11 @@ rec {
     preamble = builtins.readFile ./capture-lib.sh;
   };
 
+  float-terminal = mk {
+    name = "float-terminal";
+    runtimeInputs = [ pkgs.ghostty ];
+  };
+
   dnd = mk {
     name = "dnd";
     runtimeInputs = base ++ [ pkgs.libnotify ];

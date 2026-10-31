@@ -137,6 +137,17 @@ in
       pin
       dnd
       screen-share
+      float-terminal
+    ])
+    ++ (with pkgs; [
+      # File-manager helpers: Thunar's "Open Terminal Here" custom action
+      # (~/.config/Thunar/uca.xml) runs `exo-open`; the archive plugin's
+      # Create/Extract entries need an archiver; GLib launches terminal-only
+      # apps (Helix, yazi) through xdg-terminal-exec.
+      xfce.exo
+      file-roller
+      p7zip
+      xdg-terminal-exec
     ]);
 
   home.sessionVariables = {
@@ -177,6 +188,11 @@ in
     # theme-switch's data: one palette per theme (copied to
     # ~/.local/state/desktop/theme.json on switch) and the schedule.
     "desktop/schedule.json".text = builtins.toJSON schedule;
+
+    # The file manager's terminal is float-terminal (see the helper and
+    # desktop entry under "xdg.dataFile"/"xdg.desktopEntries" below).
+    "xfce4/helpers.rc".text = "TerminalEmulator=float-terminal\n";
+    "xdg-terminals.list".text = "float-terminal.desktop\n";
   }
   # Per-theme variants. The active ghostty/config, kitty/kitty.conf,
   # hypr/colors.lua, helix/themes/current.toml, yazi/theme.toml and
@@ -425,9 +441,47 @@ in
   };
 
   xdg.enable = true;
+
+  # Floating terminal (scripts/float-terminal.sh) as the file manager's
+  # terminal, in the three places that look for one:
+  #  - exo (Thunar's "Open Terminal Here"): a helper plus helpers.rc
+  #  - xdg-terminal-exec (GLib, for Terminal=true apps): a terminal desktop
+  #    entry plus xdg-terminals.list
+  xdg.dataFile."xfce4/helpers/float-terminal.desktop".text = ''
+    [Desktop Entry]
+    NoDisplay=true
+    Version=1.0
+    Type=X-XFCE-Helper
+    X-XFCE-Category=TerminalEmulator
+    X-XFCE-Commands=float-terminal
+    X-XFCE-CommandsWithParameter=float-terminal -e sh -c "%s"
+    Icon=utilities-terminal
+    Name=Floating Terminal
+  '';
+  xdg.desktopEntries.float-terminal = {
+    name = "Floating Terminal";
+    genericName = "Terminal Emulator";
+    exec = "float-terminal";
+    icon = "utilities-terminal";
+    terminal = false;
+    categories = [
+      "System"
+      "TerminalEmulator"
+    ];
+    settings.X-TerminalArgExec = "-e";
+  };
+
   xdg.mimeApps = {
     enable = true;
     defaultApplications = {
+      # Archives open in file-roller (also what Thunar's archive plugin drives).
+      "application/zip" = "org.gnome.FileRoller.desktop";
+      "application/x-tar" = "org.gnome.FileRoller.desktop";
+      "application/x-compressed-tar" = "org.gnome.FileRoller.desktop";
+      "application/x-bzip-compressed-tar" = "org.gnome.FileRoller.desktop";
+      "application/x-xz-compressed-tar" = "org.gnome.FileRoller.desktop";
+      "application/gzip" = "org.gnome.FileRoller.desktop";
+      "application/x-7z-compressed" = "org.gnome.FileRoller.desktop";
       "text/html" = "google-chrome.desktop";
       "x-scheme-handler/http" = "google-chrome.desktop";
       "x-scheme-handler/https" = "google-chrome.desktop";
