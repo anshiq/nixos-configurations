@@ -57,20 +57,9 @@ in
 
     # Used in your keybinds
     lazygit
-    # glow's default `-s auto` style switches to plain "notty" output when
-    # stdout isn't a terminal (pipes, tool shells, some launchers), which
-    # prints raw markdown (`# Heading`, `**bold**`) instead of rendering it.
-    # Only an explicit -s flag overrides that (the config file and env don't),
-    # so wrap glow to default to the dark style (every theme here is dark).
-    # Flags are added first, so a user-supplied `-s light` still wins.
-    (symlinkJoin {
-      name = "glow";
-      paths = [ glow ];
-      nativeBuildInputs = [ makeWrapper ];
-      postBuild = ''
-        wrapProgram $out/bin/glow --add-flags "-s dark"
-      '';
-    })
+    # Terminal markdown viewer (`mdt FILE`): scrollable, wraps to the terminal
+    # width. Replaced glow, whose output was clipped/raw in some terminals.
+    md-tui
 
     #git
     git-filter-repo
@@ -138,19 +127,6 @@ in
   programs.helix.enable = true;
   xdg.configFile."helix/config.toml".source = ./helix/config.toml;
   xdg.configFile."helix/languages.toml".source = ./helix/languages.toml;
-
-  # glow: `pager: true` opens long documents in its scrollable viewer at the
-  # top (with false it dumps everything and the start scrolls away). Piped
-  # output is still printed directly. The style is set by the glow wrapper
-  # above (-s dark), as the config key is ignored when stdout isn't a TTY.
-  # No `width`: a fixed width clips or mis-wraps text in terminals narrower
-  # than it; unset, glow wraps to the terminal width (capped at 120).
-  xdg.configFile."glow/glow.yml".text = ''
-    style: "dark"
-    mouse: false
-    pager: true
-    all: false
-  '';
 
   xdg.configFile."opencode/AGENTS.md".source =
     config.lib.file.mkOutOfStoreSymlink /etc/nixos/.claude/CLAUDE.md;
