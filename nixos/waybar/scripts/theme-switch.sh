@@ -241,3 +241,11 @@ if [ "$kind" = "night" ]; then
 else
   { pgrep -x hyprsunset >/dev/null && pkill -x hyprsunset; } || true
 fi
+
+# Publish the new palette (and the lock wallpaper) for the login greeter
+# (desktop/greeter.nix). The greeter runs before anyone is logged in, so it
+# cannot read ~/.local/state itself. A no-op when greeter-sync is not
+# installed or the greeter's shared directory does not exist yet.
+if command -v greeter-sync >/dev/null 2>&1; then
+  greeter-sync >/dev/null 2>&1 || true
+fi

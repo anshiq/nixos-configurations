@@ -18,6 +18,8 @@ in
 {
   imports = [
     ./desktop/home.nix
+    ./desktop/settings-app.nix
+    ./desktop/greeter-sync.nix
     ./plugins/cli.nix
     ./ytermusic.nix
   ];

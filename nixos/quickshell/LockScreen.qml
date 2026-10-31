@@ -30,6 +30,29 @@ Scope {
 
     property bool wantLock: false
 
+    // Wallpaper chosen in the settings app (desktop/settings-app, "Lock
+    // screen" page), stored as {"wallpaper": "/abs/path"} in lockscreen.json.
+    // Empty, missing, or unreadable all mean the stock wallpaper - and the
+    // Image below falls back to it if the chosen file fails to load - so a bad
+    // choice can never leave the lock screen without a background.
+    readonly property string defaultWallpaper: `file://${Quickshell.env("HOME")}/.config/wallpapers/wallpaper.png`
+    property string customWallpaper: ""
+
+    FileView {
+        path: `${Quickshell.env("HOME")}/.local/state/quickshell/lockscreen.json`
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: {
+            try {
+                root.customWallpaper = JSON.parse(text()).wallpaper || "";
+            } catch (e) {
+                root.customWallpaper = "";
+            }
+        }
+        onLoadFailed: root.customWallpaper = ""
+    }
+
     IpcHandler {
         target: "lockscreen"
         function lock(): void {
@@ -113,9 +136,13 @@ Scope {
                 Image {
                     id: wallpaper
                     anchors.fill: parent
-                    source: `file://${Quickshell.env("HOME")}/.config/wallpapers/wallpaper.png`
+                    // encodeURI + the two characters it leaves alone that a
+                    // file URL cannot carry raw (# and ?).
+                    source: root.customWallpaper !== "" ? "file://" + encodeURI(root.customWallpaper).replace(/#/g, "%23").replace(/\?/g, "%3F") : root.defaultWallpaper
                     fillMode: Image.PreserveAspectCrop
                     visible: false
+                    onStatusChanged: if (status === Image.Error)
+                        root.customWallpaper = ""
                 }
 
                 // Approximates hyprlockSettings' blur_passes/blur_size.

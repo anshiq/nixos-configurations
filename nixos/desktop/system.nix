@@ -1,26 +1,5 @@
 { pkgs, ... }:
 
-let
-  # Same file checked into nixos/desktop/wallpapers/ and used for the desktop
-  # background and hyprlock (see desktop/home.nix) - keeping the boot/logout
-  # greeter on the same image.
-  wallpaper = ./wallpapers/shortcuts-latest.png;
-
-  # SDDM's bundled "maldives" greeter theme, but with its background pointed
-  # at `wallpaper` instead of its own baked-in image. `theme` below is set to
-  # this derivation's absolute path rather than a bare name, which sddm's
-  # Theme.Current accepts directly for out-of-tree themes (see the nixpkgs
-  # sddm module's own example).
-  sddmWallpaperTheme = pkgs.runCommand "sddm-theme-maldives-wallpaper" { } ''
-        mkdir -p "$out/share/sddm/themes"
-        cp -r ${pkgs.kdePackages.sddm}/share/sddm/themes/maldives "$out/share/sddm/themes/maldives-wallpaper"
-        chmod -R u+w "$out/share/sddm/themes/maldives-wallpaper"
-        cat > "$out/share/sddm/themes/maldives-wallpaper/theme.conf" <<EOF
-    [General]
-    background=${wallpaper}
-    EOF
-  '';
-in
 {
   # Native graphical stack. This is intentionally Hyprland-only, not a full
   # GNOME/KDE desktop environment.
@@ -39,11 +18,8 @@ in
   services.tumbler.enable = true;
   programs.xfconf.enable = true;
 
-  services.displayManager.sddm = {
-    enable = true;
-    wayland.enable = true;
-    theme = "${sddmWallpaperTheme}/share/sddm/themes/maldives-wallpaper";
-  };
+  # The login screen is greetd + the Quickshell greeter, see desktop/greeter.nix
+  # (it replaced SDDM so the first screen after boot matches the lock screen).
 
   security.polkit.enable = true;
   services.gnome.gnome-keyring.enable = true;

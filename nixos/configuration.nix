@@ -11,6 +11,7 @@
     # Generate it with `nixos-generate-config` before the first native rebuild.
     ./hardware-configuration.nix
     ./desktop/system.nix
+    ./desktop/greeter.nix
   ];
 
   ############################
@@ -29,8 +30,12 @@
 
   networking.hostName = "nixos";
   networking.networkmanager.enable = true;
-  #hardware.bluetooth.enable = true;
+  # bluez daemon: backs the Bluetooth page of the settings app
+  # (desktop/settings-app/), which replaces blueman as the pairing UI.
+  hardware.bluetooth.enable = true;
   #services.blueman.enable = true;
+  # Backs the power-profile picker on the settings app's Power page.
+  services.power-profiles-daemon.enable = true;
 
   # Run selected unpatched precompiled binaries that are not built for NixOS.
   programs.nix-ld.enable = true;

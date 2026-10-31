@@ -183,6 +183,8 @@ hl.bind(mod .. " + SHIFT + RETURN", hl.dsp.exec_cmd(browser))
 hl.bind(mod .. " + SHIFT + B", hl.dsp.exec_cmd(browser))
 hl.bind(mod .. " + ALT + B", hl.dsp.exec_cmd(browser2))
 hl.bind(mod .. " + SPACE", hl.dsp.exec_cmd(menu))
+-- Settings app (Wi-Fi, Bluetooth, sound, display, power, ...) - desktop/settings-app.nix
+hl.bind(mod .. " + I", hl.dsp.exec_cmd("settings-app"))
 
 -- Windows
 hl.bind(mod .. " + Q", hl.dsp.window.close())
@@ -275,6 +277,15 @@ hl.bind(mod .. " + ALT + J", hl.dsp.window.resize({ x = 0, y = resizeStep, relat
 hl.window_rule({
   name  = "float-config-windows",
   match = { class = "^(org.pulseaudio.pavucontrol|blueman-manager|nm-connection-editor)$" },
+  float = true,
+  center = true,
+})
+
+-- The settings app (desktop/settings-app/) is a Quickshell FloatingWindow; its
+-- class is the generic org.quickshell, so the title is what singles it out.
+hl.window_rule({
+  name  = "float-settings-app",
+  match = { class = "^org.quickshell$", title = "^Settings$" },
   float = true,
   center = true,
 })
