@@ -1,13 +1,13 @@
 // Lock screen: choose the wallpaper behind the Quickshell lock screen.
 //
-// The choice is a one-key JSON file, ~/.local/state/quickshell/lockscreen.json
+// The choice is a one-key JSON file, ~/.local/state/desktop/lockscreen.json
 // ({"wallpaper": "/abs/path"}; empty or missing = the stock wallpaper), which
 // quickshell/LockScreen.qml watches. Candidates come from the repo's
 // desktop/wallpapers/ and from ~/Pictures/Wallpapers (drop your own images
 // there). The choice is also published for the boot login screen via
 // greeter-sync (desktop/greeter-sync.nix). This does not touch the desktop
-// background (theme-rendered, see waybar/scripts/render-wallpaper.sh) or
-// hyprlock, the manual fallback.
+// background (rendered per theme by render-wallpaper) or hyprlock, the
+// manual fallback.
 import QtQuick
 import QtQuick.Effects
 import QtQuick.Layouts
@@ -20,7 +20,7 @@ Page {
     subtitle: "Behind the password prompt and at boot"
 
     readonly property string home: Quickshell.env("HOME")
-    readonly property string defaultPath: home + "/.config/wallpapers/wallpaper.png"
+    readonly property string defaultPath: home + "/.local/state/desktop/wallpaper.png"
 
     property string selected: ""
     property var images: []
@@ -46,7 +46,7 @@ Page {
         page.selected = path;
         // Save the choice, then publish it for the login greeter as well
         // (greeter-sync copies the wallpaper where the greeter can read it).
-        save.run(["bash", "-c", `f="$HOME/.local/state/quickshell/lockscreen.json"; mkdir -p "$(dirname "$f")" && printf '%s\\n' "$1" > "$f.tmp" && mv "$f.tmp" "$f" || exit 1; if command -v greeter-sync >/dev/null 2>&1; then greeter-sync >/dev/null 2>&1 || true; fi`, "_", JSON.stringify({
+        save.run(["bash", "-c", `f="$HOME/.local/state/desktop/lockscreen.json"; mkdir -p "$(dirname "$f")" && printf '%s\\n' "$1" > "$f.tmp" && mv "$f.tmp" "$f" || exit 1; if command -v greeter-sync >/dev/null 2>&1; then greeter-sync >/dev/null 2>&1 || true; fi`, "_", JSON.stringify({
                 "wallpaper": path
             })]);
     }

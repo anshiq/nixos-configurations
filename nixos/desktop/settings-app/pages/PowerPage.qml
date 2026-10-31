@@ -1,8 +1,10 @@
-// Power: battery status (read from sysfs - no extra daemon needed) and the
-// power profile (power-profiles-daemon via powerprofilesctl).
+// Power: battery status (read from sysfs - no extra daemon needed), the
+// power profile (power-profiles-daemon via powerprofilesctl) and the idle
+// timeouts (`idle-settings`, which rewrites hypridle's config).
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import ".."
 
 Page {
@@ -18,6 +20,49 @@ Page {
     property var profiles: []
     property string activeProfile: ""
     property string profileError: ""
+
+    // Idle timeouts in minutes, 0 = never. `idle` is what is saved, `draft`
+    // what the steppers show until Apply.
+    property bool idleOk: false
+    property var idle: ({
+            lock: 0,
+            dpms: 0,
+            suspend: 0
+        })
+    property var draft: ({
+            lock: 0,
+            dpms: 0,
+            suspend: 0
+        })
+    property string idleError: ""
+    readonly property bool idleDirty: draft.lock !== idle.lock || draft.dpms !== idle.dpms || draft.suspend !== idle.suspend
+    readonly property var idleSteps: [0, 1, 2, 3, 5, 10, 15, 20, 25, 30, 45, 60, 90, 120, 180, 240]
+
+    function stepIdle(key, dir) {
+        const cur = page.draft[key];
+        const steps = page.idleSteps;
+        let next = cur;
+        if (dir > 0)
+            next = steps.find(v => v > cur) ?? steps[steps.length - 1];
+        else
+            next = [...steps].reverse().find(v => v < cur) ?? 0;
+        const d = Object.assign({}, page.draft);
+        d[key] = next;
+        page.draft = d;
+    }
+
+    function applyIdle() {
+        page.idleError = "";
+        idleSet.run(["idle-settings", "set", String(page.draft.lock), String(page.draft.dpms), String(page.draft.suspend)]);
+    }
+
+    function fmtMinutes(m) {
+        if (m <= 0)
+            return "Never";
+        if (m < 60)
+            return `${m} min`;
+        return m % 60 === 0 ? `${m / 60} h` : `${Math.floor(m / 60)} h ${m % 60} min`;
+    }
 
     readonly property var profileInfo: ({
             "power-saver": {
@@ -64,18 +109,64 @@ Page {
         return hh > 0 ? `${hh} h ${mm} min` : `${mm} min`;
     }
 
-    function refresh() {
+    function readBattery() {
         batCmd.run(["bash", Quickshell.shellDir + "/scripts/battery.sh"]);
+    }
+
+    function refresh() {
+        readBattery();
         ppdList.run(["powerprofilesctl", "list"]);
     }
 
     Component.onCompleted: refresh()
 
+    // The page only exists while it is shown, so this slow re-read stops
+    // with it. Profiles are read on show and after a change only.
     Timer {
-        interval: 5000
-        running: true
+        interval: 30000
+        running: page.visible && page.hasBattery
         repeat: true
-        onTriggered: page.refresh()
+        onTriggered: page.readBattery()
+    }
+
+    Cmd {
+        id: idleGet
+        onFinished: (code, out, err) => {
+            try {
+                const j = JSON.parse(out);
+                const v = {
+                    lock: Math.max(0, parseInt(j.lock, 10) || 0),
+                    dpms: Math.max(0, parseInt(j.dpms, 10) || 0),
+                    suspend: Math.max(0, parseInt(j.suspend, 10) || 0)
+                };
+                const keepDraft = page.idleOk && page.idleDirty;
+                page.idle = v;
+                if (!keepDraft)
+                    page.draft = Object.assign({}, v);
+                page.idleOk = code === 0;
+            } catch (e) {
+                page.idleOk = false;
+            }
+        }
+    }
+
+    Cmd {
+        id: idleSet
+        onFinished: (code, out, err) => {
+            page.idleError = code === 0 ? "" : (err.trim() || "Could not save the idle timeouts.");
+            idleGet.run(["idle-settings", "get", "--json"]);
+        }
+    }
+
+    // idle-settings keeps its state here; re-read when it changes (also
+    // does the first read when the page opens).
+    FileView {
+        path: `${Quickshell.env("HOME")}/.local/state/desktop/idle.json`
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: idleGet.run(["idle-settings", "get", "--json"])
+        onLoadFailed: idleGet.run(["idle-settings", "get", "--json"])
     }
 
     Cmd {
@@ -120,7 +211,7 @@ Page {
         id: ppdSet
         onFinished: (code, out, err) => {
             page.profileError = code === 0 ? "" : (err.trim() || "Could not change the power profile.");
-            page.refresh();
+            ppdList.run(["powerprofilesctl", "list"]);
         }
     }
 
@@ -295,6 +386,91 @@ Page {
                         ppdSet.run(["powerprofilesctl", "set", prof.modelData]);
                     }
                 }
+            }
+        }
+    }
+
+    // --- idle
+    SectionLabel {
+        text: "When idle"
+    }
+    Banner {
+        text: page.idleError
+        kind: "error"
+    }
+    Card {
+        visible: !page.idleOk
+        SettingRow {
+            first: true
+            icon: Icons.timer
+            title: "Idle timeouts are not available"
+            subtitle: "The idle-settings command was not found or did not answer. Once it is installed, you can set when the screen locks, turns off and the system suspends."
+            minHeight: 72
+        }
+    }
+    Card {
+        visible: page.idleOk
+        Repeater {
+            model: [
+                {
+                    key: "lock",
+                    title: "Lock the screen",
+                    icon: Icons.lock
+                },
+                {
+                    key: "dpms",
+                    title: "Turn the screen off",
+                    icon: Icons.display
+                },
+                {
+                    key: "suspend",
+                    title: "Suspend",
+                    icon: Icons.nightLight
+                }
+            ]
+            delegate: SettingRow {
+                id: idleRow
+                required property var modelData
+                required property int index
+                first: index === 0
+                icon: modelData.icon
+                title: modelData.title
+                subtitle: "After this long without input"
+                Btn {
+                    text: "−"
+                    implicitWidth: 34
+                    enabled: page.draft[idleRow.modelData.key] > 0
+                    onClicked: page.stepIdle(idleRow.modelData.key, -1)
+                }
+                Label {
+                    text: page.fmtMinutes(page.draft[idleRow.modelData.key])
+                    color: Theme.brightForeground
+                    horizontalAlignment: Text.AlignHCenter
+                    Layout.preferredWidth: 84
+                }
+                Btn {
+                    text: "+"
+                    implicitWidth: 34
+                    enabled: page.draft[idleRow.modelData.key] < page.idleSteps[page.idleSteps.length - 1]
+                    onClicked: page.stepIdle(idleRow.modelData.key, 1)
+                }
+            }
+        }
+        SettingRow {
+            minHeight: 56
+            title: page.idleDirty ? "Unsaved changes" : "Saved"
+            subtitle: "Use − down to Never to turn a step off."
+            Btn {
+                text: "Revert"
+                enabled: page.idleDirty && !idleSet.running
+                onClicked: page.draft = Object.assign({}, page.idle)
+            }
+            Btn {
+                text: "Apply"
+                kind: "primary"
+                busy: idleSet.running
+                enabled: page.idleDirty
+                onClicked: page.applyIdle()
             }
         }
     }
