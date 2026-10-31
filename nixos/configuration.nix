@@ -1,27 +1,27 @@
 # /etc/nixos/configuration.nix
 
 {
+  config,
+  lib,
   pkgs,
   ...
 }:
 
 {
-  imports = [
-    # This file must come from the native NixOS installer for the target machine.
-    # Generate it with `nixos-generate-config` before the first native rebuild.
-    ./hardware-configuration.nix
-  ];
-
   ############################
-  ## Native NixOS
+  ## WSL
   ############################
+  # NixOS-WSL (flake.nix) supplies the boot, filesystem and init plumbing, so
+  # there is no hardware-configuration.nix, bootloader or NetworkManager here.
 
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
+  wsl.enable = true;
+  wsl.defaultUser = "nixos";
+  wsl.interop.register = true;
+  wsl.wslConf.interop.enabled = true;
+
   nixpkgs.config.allowUnfree = true;
 
   networking.hostName = "nixos";
-  networking.networkmanager.enable = true; # nmcli / nmtui
 
   # Caps the wait on a hanging user manager at shutdown at 7s (default 90s).
   systemd.services."user@".serviceConfig.TimeoutStopSec = "7s";
@@ -100,10 +100,12 @@
     # Misc
     udev
   ];
-  # Do not export a global LD_LIBRARY_PATH on native NixOS: it can override
-  # package-specific library resolution and make otherwise reproducible apps unstable.
-  # environment.variables.LD_LIBRARY_PATH =
-  #   lib.makeLibraryPath config.programs.nix-ld.libraries;
+  # nix-ld sets NIX_LD_LIBRARY_PATH for the patched interpreter, which covers
+  # normal binary loading. Explicit dlopen() calls at runtime (Bun's native
+  # addon loader) only honour LD_LIBRARY_PATH, so WSL exports it too. The
+  # native desktop/headless branches leave it unset because a global
+  # LD_LIBRARY_PATH can override package-specific library resolution.
+  environment.variables.LD_LIBRARY_PATH = lib.makeLibraryPath config.programs.nix-ld.libraries;
 
   ############################
   ## Fish Shell
@@ -114,17 +116,8 @@
   users.users.nixos = {
     isNormalUser = true;
     description = "NixOS User";
-    extraGroups = [
-      "wheel"
-      "networkmanager"
-      "video"
-      "audio"
-      "input"
-      "kvm"
-    ];
+    extraGroups = [ "wheel" ];
     shell = pkgs.fish;
-    initialPassword = "a";
-
   };
   security.sudo.enable = true;
 
@@ -147,18 +140,14 @@
   };
 
   ############################
-  ## QEMU/KVM Virtualization (libvirt, driven with virsh)
-  ############################
-  virtualisation.libvirtd.enable = true;
-
-  ############################
   ## System Packages
   ############################
   #
   # Tools configured through a programs.* module (fish, starship, git, zoxide
   # here; fzf, helix, zellij, yazi in home.nix) are not repeated in this list:
-  # the module installs the package. This is the headless branch: GUI
-  # applications and the Hyprland/Quickshell desktop live on the desktop branch.
+  # the module installs the package. This is the WSL branch: no GUI, and no
+  # libvirt/KVM; GUI applications and the Hyprland/Quickshell desktop live on
+  # the desktop branch.
 
   environment.systemPackages = with pkgs; [
     # Editors
@@ -239,7 +228,7 @@
   ## SSH
   ############################
 
-  #services.openssh.enable = true;
+  services.openssh.enable = true;
 
   ############################
   ## Starship Prompt
