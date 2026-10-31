@@ -133,6 +133,10 @@ in
       render-wallpaper
       idle-settings
       theme-warmth-ramp
+      ocr
+      pin
+      dnd
+      screen-share
     ]);
 
   home.sessionVariables = {

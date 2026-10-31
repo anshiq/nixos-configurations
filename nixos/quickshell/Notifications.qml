@@ -1,12 +1,15 @@
 // Notification daemon: owns org.freedesktop.Notifications and shows popups
 // top-right. Click dismisses; each popup expires after its timeout (5 s
-// default).
+// default). With do-not-disturb on (`dnd` command, state file watched below)
+// only critical notifications are shown; the rest are dropped.
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Services.Notifications
 import qs
+import qs.components
 
 PanelWindow {
     id: root
@@ -27,6 +30,29 @@ PanelWindow {
 
     // Live notification objects by id; the model holds plain copies.
     property var live: ({})
+
+    // Do not disturb, from `dnd status --json`, re-read whenever the state
+    // file changes (the dnd command replaces it atomically).
+    property bool dnd: false
+
+    Cmd {
+        id: dndCmd
+        onFinished: (code, out) => {
+            try {
+                root.dnd = !!JSON.parse(out).dnd;
+            } catch (e) {
+                root.dnd = false;
+            }
+        }
+    }
+
+    FileView {
+        path: `${Quickshell.env("HOME")}/.local/state/desktop/dnd`
+        watchChanges: true
+        printErrors: false
+        onFileChanged: dndCmd.run(["dnd", "status", "--json"])
+        onLoaded: dndCmd.run(["dnd", "status", "--json"])
+    }
 
     function remove(id) {
         for (let i = 0; i < popups.count; i++) {
@@ -52,6 +78,8 @@ PanelWindow {
         imageSupported: true
         actionsSupported: false
         onNotification: n => {
+            if (root.dnd && n.urgency !== NotificationUrgency.Critical)
+                return;
             n.tracked = true;
             root.live[n.id] = n;
             popups.append({

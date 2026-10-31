@@ -1,6 +1,7 @@
 // Clipboard history (cliphist). The list is loaded each time the panel
 // opens and dropped when it closes.
-// Keys: type to filter, Up/Down, Enter copies, Shift+Delete deletes, Esc.
+// Keys: type to filter, Up/Down, Enter copies, Shift+Delete deletes,
+// Ctrl+O reads the text out of an image entry (ocr), Esc.
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
@@ -59,6 +60,15 @@ Overlay {
         if (!e)
             return;
         Quickshell.execDetached(["sh", "-c", "printf '%s' \"$1\" | cliphist decode | wl-copy", "sh", e.line]);
+        Session.close("clipboard");
+    }
+
+    // OCR an image entry: the text goes to the clipboard and a notification.
+    function ocr(index) {
+        const e = root.filtered[index];
+        if (!e || !e.image)
+            return;
+        Quickshell.execDetached(["sh", "-c", "printf '%s' \"$1\" | cliphist decode | ocr --stdin", "sh", e.line]);
         Session.close("clipboard");
     }
 
@@ -134,6 +144,8 @@ Overlay {
                         list.decrementCurrentIndex();
                     } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                         root.copy(list.currentIndex);
+                    } else if (event.key === Qt.Key_O && (event.modifiers & Qt.ControlModifier)) {
+                        root.ocr(list.currentIndex);
                     } else if (event.key === Qt.Key_Delete && (event.modifiers & Qt.ShiftModifier)) {
                         root.remove(list.currentIndex);
                     } else {
@@ -211,7 +223,7 @@ Overlay {
             id: footer
             anchors.bottom: parent.bottom
             width: parent.width
-            text: "Enter copy   Shift+Del delete   Esc close"
+            text: "Enter copy   Ctrl+O read text from image   Shift+Del delete   Esc close"
             horizontalAlignment: Text.AlignRight
             color: Qt.alpha(Colors.foreground, 0.5)
             font.family: Colors.font

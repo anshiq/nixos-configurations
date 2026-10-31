@@ -1,15 +1,19 @@
-# screen-record toggle [--region] | start [--region] | stop | status [--json]
+# screen-record toggle|start [--region] [--gif] | stop | status [--json]
 # wf-recorder into ~/Videos/Recordings/. --region asks for an area with slurp.
+# --gif records the same way, then on stop converts the clip to a GIF (12 fps,
+# at most 960 px wide), copies it to the clipboard and drops the mp4.
 # The running recorder is tracked by $XDG_RUNTIME_DIR/screen-record.pid (the
-# output path is kept next to it in screen-record.file).
+# output path is kept next to it in screen-record.file, the mode in
+# screen-record.mode).
 
 runtime_dir="${XDG_RUNTIME_DIR:-/tmp}"
 pid_file="$runtime_dir/screen-record.pid"
 file_file="$runtime_dir/screen-record.file"
+mode_file="$runtime_dir/screen-record.mode"
 out_dir="$HOME/Videos/Recordings"
 
 usage() {
-  echo "usage: screen-record toggle [--region] | start [--region] | stop | status [--json]" >&2
+  echo "usage: screen-record toggle|start [--region] [--gif] | stop | status [--json]" >&2
   exit 1
 }
 
@@ -29,10 +33,14 @@ recorder_pid() {
 
 start() {
   recorder_pid >/dev/null && return 0
-  local geometry="" file
-  if [ "${1:-}" = --region ]; then
-    geometry=$(slurp) || exit 0
-  fi
+  local geometry="" file mode=video arg
+  for arg in "$@"; do
+    case "$arg" in
+      --region) geometry=$(slurp) || exit 0 ;;
+      --gif) mode=gif ;;
+      *) usage ;;
+    esac
+  done
   mkdir -p "$out_dir"
   file="$out_dir/recording-$(date +%Y-%m-%d_%H-%M-%S).mp4"
   if [ -n "$geometry" ]; then
@@ -42,17 +50,19 @@ start() {
   fi
   echo "$!" > "$pid_file"
   echo "$file" > "$file_file"
+  echo "$mode" > "$mode_file"
   disown
-  notify-send -t 2000 "Screen recording" "Recording started" 2>/dev/null || true
+  notify-send -t 2000 "Screen recording" "Recording started$([ "$mode" = gif ] && echo ' (GIF)')" 2>/dev/null || true
 }
 
 stop() {
-  local pid file i
+  local pid file mode i gif
   if ! pid=$(recorder_pid); then
-    rm -f "$pid_file" "$file_file"
+    rm -f "$pid_file" "$file_file" "$mode_file"
     return 0
   fi
   file=$(cat "$file_file" 2>/dev/null || true)
+  mode=$(cat "$mode_file" 2>/dev/null || echo video)
   # SIGINT lets wf-recorder finalize the file; wait for it (bounded).
   kill -INT "$pid" 2>/dev/null || true
   for i in $(seq 50); do
@@ -60,15 +70,30 @@ stop() {
     [ "$i" -eq 50 ] && kill -TERM "$pid" 2>/dev/null
     sleep 0.1
   done
-  rm -f "$pid_file" "$file_file"
+  rm -f "$pid_file" "$file_file" "$mode_file"
+  if [ "$mode" = gif ] && [ -s "$file" ]; then
+    gif="${file%.mp4}.gif"
+    notify-send -t 2000 "Screen recording" "Converting to GIF..." 2>/dev/null || true
+    if ffmpeg -loglevel error -y -i "$file" \
+      -vf "fps=12,scale='min(960,iw)':-2:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" \
+      "$gif"; then
+      rm -f "$file"
+      wl-copy --type image/gif < "$gif" >/dev/null 2>&1 || true
+      notify-send -t 4000 "Screen recording" "GIF saved and copied: $gif" 2>/dev/null || true
+      return 0
+    fi
+    rm -f "$gif"
+    notify-send -t 4000 "Screen recording" "GIF conversion failed; kept $file" 2>/dev/null || true
+    return 0
+  fi
   notify-send -t 4000 "Screen recording" "Saved ${file:-recording}" 2>/dev/null || true
 }
 
 case "${1:-}" in
   toggle)
-    if recorder_pid >/dev/null; then stop; else start "${2:-}"; fi
+    if recorder_pid >/dev/null; then stop; else start "${@:2}"; fi
     ;;
-  start) start "${2:-}" ;;
+  start) start "${@:2}" ;;
   stop) stop ;;
   status)
     if recorder_pid >/dev/null; then

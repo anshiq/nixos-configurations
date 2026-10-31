@@ -118,6 +118,53 @@ rec {
       pkgs.slurp
       pkgs.libnotify
       pkgs.gnugrep
+      pkgs.ffmpeg-headless # --gif conversion
+      pkgs.wl-clipboard
     ];
+  };
+
+  # Region capture helpers share capture-lib.sh (freeze, select, grim).
+  ocr = mk {
+    name = "ocr";
+    runtimeInputs = base ++ [
+      (pkgs.tesseract.override {
+        enableLanguages = [
+          "eng"
+          "hin"
+        ];
+      })
+      pkgs.zbar
+      pkgs.imagemagick
+      pkgs.translate-shell
+      pkgs.wl-clipboard
+      pkgs.libnotify
+      pkgs.grim
+      pkgs.slurp
+      pkgs.wayfreeze
+    ];
+    preamble = builtins.readFile ./capture-lib.sh;
+  };
+
+  pin = mk {
+    name = "pin";
+    runtimeInputs = base ++ [
+      pkgs.mpv
+      pkgs.wl-clipboard
+      pkgs.libnotify
+      pkgs.grim
+      pkgs.slurp
+      pkgs.wayfreeze
+    ];
+    preamble = builtins.readFile ./capture-lib.sh;
+  };
+
+  dnd = mk {
+    name = "dnd";
+    runtimeInputs = base ++ [ pkgs.libnotify ];
+  };
+
+  screen-share = mk {
+    name = "screen-share";
+    runtimeInputs = base ++ [ pkgs.pipewire ];
   };
 }

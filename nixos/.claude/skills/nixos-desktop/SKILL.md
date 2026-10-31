@@ -65,7 +65,11 @@ theme-switch [<name>|toggle|next]     # no arg = scheduled theme
 theme-status [--json]
 bluelight status [--json] | toggle | on | off | set <kelvin> | adjust <+N|-N>
 screenshot                            # flameshot gui
-screen-record toggle [--region] | start [--region] | stop | status [--json]
+screen-record toggle|start [--region] [--gif] | stop | status [--json]
+ocr [--qr | --text] [--translate [LANG]] [--lang LANGS] [--file F | --stdin]   # copy text/QR from a screen region
+pin [--clipboard]                     # float a screen region / the clipboard image on top
+dnd [status [--json] | toggle | on | off]   # do not disturb (notification popups)
+screen-share status [--json]          # PipeWire screencast in progress?
 idle-settings get [--json] | set <lock> <dpms> <suspend>   # minutes, 0 = never
 settings-app [page]
 

@@ -199,6 +199,20 @@ hl.bind(mod .. " + PRINT", hl.dsp.exec_cmd("hyprpicker -a"))
 -- Start/stop a full-screen recording into ~/Videos/Recordings
 hl.bind(mod .. " + SHIFT + PRINT", hl.dsp.exec_cmd("screen-record toggle"))
 hl.bind(mod .. " + V", hl.dsp.exec_cmd("quickshell ipc call clipboard toggle"))
+-- Record a region as a GIF (converted and copied to the clipboard on stop)
+hl.bind(mod .. " + ALT + PRINT", hl.dsp.exec_cmd("screen-record toggle --region --gif"))
+-- Copy text from anywhere on screen: drag a region and it lands on the
+-- clipboard (QR codes are decoded too). ALT = QR/barcode only, CTRL = also
+-- translate to English.
+hl.bind(mod .. " + SHIFT + O", hl.dsp.exec_cmd("ocr"))
+hl.bind(mod .. " + ALT + O", hl.dsp.exec_cmd("ocr --qr"))
+hl.bind(mod .. " + CTRL + O", hl.dsp.exec_cmd("ocr --text --translate en"))
+-- Pin a screen region (or the clipboard image) as a floating always-on-top
+-- window; close it with Super+Q
+hl.bind(mod .. " + SHIFT + P", hl.dsp.exec_cmd("pin"))
+hl.bind(mod .. " + CTRL + P", hl.dsp.exec_cmd("pin --clipboard"))
+-- Do not disturb: silence notification popups
+hl.bind(mod .. " + N", hl.dsp.exec_cmd("dnd toggle"))
 -- Flip between day and night themes (the schedule switches automatically;
 -- `theme-switch <name>|next` from a terminal picks a specific one)
 hl.bind(mod .. " + SHIFT + T", hl.dsp.exec_cmd("theme-switch toggle"))
@@ -255,6 +269,15 @@ hl.window_rule({
   match = { title = "^(Picture.?in.?Picture)$" },
   float            = true,
   pin              = true,
+  keep_aspect_ratio = true,
+})
+
+-- `pin` (desktop/scripts/pin.sh) shows its capture in an mpv window with this app id.
+hl.window_rule({
+  name  = "pinned-screenshot",
+  match = { class = "^pinned-shot$" },
+  float             = true,
+  pin               = true,
   keep_aspect_ratio = true,
 })
 

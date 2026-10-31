@@ -138,6 +138,10 @@ PanelWindow {
                 bar: root
                 height: parent.height
             }
+            Dnd {
+                bar: root
+                height: parent.height
+            }
             Settings {
                 bar: root
                 height: parent.height

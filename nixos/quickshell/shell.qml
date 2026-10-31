@@ -1,5 +1,5 @@
 // Desktop shell: bar, launcher, clipboard history, power menu,
-// notifications and lock screen. Runs as the `quickshell` user service.
+// notifications, share/record indicator and lock screen. Runs as the `quickshell` user service.
 //
 // IPC (`quickshell ipc call <target> <function>`):
 //   launcher openDrun | lockscreen lock | powermenu toggle | clipboard toggle
@@ -13,6 +13,7 @@ ShellRoot {
     ClipboardPanel {}
     PowerMenu {}
     Notifications {}
+    ShareIndicator {}
     LockScreen {}
 
     IpcHandler {
