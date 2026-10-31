@@ -1,8 +1,0 @@
-{
-  "id": "user.volume",
-  "name": "Volume",
-  "kind": "bar-widget",
-  "entryPoint": "Volume.qml",
-  "section": "right",
-  "tooltip": "Volume - click to toggle mute"
-}

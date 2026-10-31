@@ -1,8 +1,0 @@
-{
-  "id": "user.workspaces",
-  "name": "Workspaces",
-  "kind": "bar-widget",
-  "entryPoint": "Workspaces.qml",
-  "section": "left",
-  "tooltip": "Workspace switcher"
-}

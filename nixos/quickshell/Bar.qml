@@ -1,204 +1,64 @@
-// Mirrors nixos/waybar/config's layer=top/position=top/height=22 panel
-// and its modules-left/modules-center/modules-right layout. Section
-// contents come from plugin-layout.json + plugins/<id>/manifest.json
-// (see PluginRow.qml) instead of being hardcoded here, so widgets can be
-// added/reordered/removed by editing those JSON files.
+// Top bar. Auto-hides to a 1px hover strip; widgets pause their timers
+// while it is hidden or the session is locked.
 import QtQuick
 import Quickshell
-import Quickshell.Io
-import qs.Commons
+import qs
+import qs.bar
 
 PanelWindow {
     id: root
+
+    readonly property int expandedHeight: 18
+    property bool revealed: true
+    // Widgets refresh only while this is true.
+    readonly property bool active: revealed && !Session.locked
+
     anchors {
         left: true
         right: true
         top: true
     }
-
-    // Auto-hide: full height/exclusiveZone (reserving screen space, same as
-    // before this was added) while the mouse is over the bar's row at the
-    // screen's top edge; shrinks to a 1px sliver - still anchored top, still
-    // hoverable, exclusiveZone 0 - the rest of the time, so windows get that
-    // space back. revealed starts true so the bar looks normal until the
-    // mouse first leaves it. hideTimer's 2000ms is the "hold still" grace
-    // period before it actually hides, so passing the top edge on the way to
-    // something else doesn't cause flicker.
-    readonly property int expandedHeight: 18
-    readonly property int collapsedHeight: 1
-    property bool revealed: true
-
-    implicitHeight: revealed ? expandedHeight : collapsedHeight
+    implicitHeight: revealed ? expandedHeight : 1
     exclusiveZone: revealed ? expandedHeight : 0
-    Behavior on implicitHeight {
-        NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
-    }
-    Behavior on exclusiveZone {
-        NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
-    }
-    // Starts the collapse countdown on launch too, so the bar auto-hides
-    // even if the mouse never touches it after startup, not just after a
-    // hover-then-leave.
-    Component.onCompleted: hideTimer.start()
-
     color: Colors.background
 
-    // Injected from shell.qml (`Bar { shell: shellRoot }`) - lets a widget
-    // reach `bar.shell.serviceFor(id)`, mirroring real Omarchy's Bar.qml/
-    // shell.qml contract. See qs.Ui's BarWidget.qml for the base type that
-    // reads `bar`/`vertical`/`barSize`/`moduleWidgets()`.
-    property var shell: null
-    readonly property bool vertical: false
-    readonly property int barSize: root.implicitHeight
-    // Always top - matches the PanelWindow anchors above (left+right+top).
-    // Vendored qs.Ui widgets (e.g. PopupCard) branch on this for popup
-    // placement; real Omarchy supports all four edges, this shell only ever
-    // renders the top bar.
-    readonly property string position: "top"
-
-    // The rest of real Omarchy's "bar chrome" contract - qs.Ui's
-    // WidgetButton/Panel/BarIconButton (see quickshell/Ui/) call these
-    // directly on `bar` with NO existence guard (unlike e.g.
-    // `switchPanelFrom`, which every caller checks with `typeof` first).
-    // Missing any of these throws inside a signal handler at the point of
-    // the call - e.g. WidgetButton.triggerPress() calls
-    // `bar.hideTooltip()` *before* emitting its own `pressed` signal, so a
-    // missing hideTooltip silently eats every click before it reaches the
-    // widget. Add a new bar-chrome property here only after confirming
-    // some vendored qs.Ui file actually calls it unconditionally - matching
-    // the contract, not padding it speculatively.
-    readonly property color foreground: Colors.foreground
-    readonly property color background: Colors.background
-    readonly property color urgent: Colors.red
-    readonly property color barForeground: foreground
-    // "monospace" generic family, resolved through fontconfig - so
-    // `omarchy font set` (nixos/scripts/omarchy) can repoint the bar via a
-    // fontconfig alias without a rebuild. Restart quickshell to pick up a
-    // changed alias (the omarchy command does this for you).
-    readonly property string fontFamily: "monospace"
-    readonly property bool foregroundAnimationEnabled: true
-
-    // Singleton-popup coordination (real Omarchy's requestPopout/
-    // releasePopout): a panel that opens asks the bar to close whatever
-    // other panel is currently open first, so only one is ever visible.
-    property var activePopout: null
-    function requestPopout(owner) {
-        if (root.activePopout === owner)
-            return;
-        if (root.activePopout) {
-            if (typeof root.activePopout.closeForPopoutSwitch === "function")
-                root.activePopout.closeForPopoutSwitch();
-            else if (typeof root.activePopout.close === "function")
-                root.activePopout.close();
+    Behavior on implicitHeight {
+        NumberAnimation {
+            duration: 150
+            easing.type: Easing.OutCubic
         }
-        root.activePopout = owner;
-    }
-    function releasePopout(owner) {
-        if (root.activePopout === owner)
-            root.activePopout = null;
     }
 
-    // Shared hover tooltip - one popup for the whole bar, matching
-    // Omarchy's model (WidgetButton.onEntered/onExited call these
-    // unconditionally). Same PopupWindow shape PluginRow.qml already uses
-    // for manifest-declared tooltips, just bar-owned instead of per-plugin.
-    // tooltipTarget is deliberately never reset to null after its first
-    // assignment (see hideTooltip below) - Quickshell 0.3.0's
-    // PopupAnchor::setItem() segfaults (QQuickItem::window() on a stale
-    // pointer inside PopupAnchor::onItemWindowChanged()) when a PopupWindow's
-    // `anchor.item` binding writes null over a previously-real item. Confirmed
-    // from ~/.cache/quickshell/crashes/*/report.txt: 8 of the last 9 crashes
-    // on this machine are exactly this stack, triggered by any widget click
-    // that fires hideTooltip while hovered (screentime hits it hardest since
-    // its tooltip text - and therefore this binding - churns every few
-    // seconds). `visible` below now depends only on tooltipText, so the
-    // popup still hides correctly; `anchor.item` just keeps pointing at the
-    // last real item instead of ever going through null.
-    property var tooltipTarget: null
+    Component.onCompleted: hideTimer.start()
+
+    Timer {
+        id: hideTimer
+        interval: 2000
+        onTriggered: root.revealed = false
+    }
+
+    // Shared tooltip. tooltipTarget is never reset to null: Quickshell 0.3.0
+    // crashes in PopupAnchor when anchor.item goes from an item to null.
+    property Item tooltipTarget: null
     property string tooltipText: ""
+
     function showTooltip(item, text) {
         root.tooltipTarget = item;
-        root.tooltipText = text || "";
+        root.tooltipText = text;
     }
+
     function hideTooltip(item) {
-        if (root.tooltipTarget === item) {
+        if (root.tooltipTarget === item)
             root.tooltipText = "";
-        }
     }
 
-    // Outside-click / arrow-key panel switching hooks some qs.Ui widgets
-    // call - always through a `typeof` guard, so a safe no-op is enough
-    // (no dismiss-on-outside-click or arrow-switch behavior yet, just
-    // never throws).
-    property var clickTargets: []
-    function registerClickTarget(item) {
-        if (root.clickTargets.indexOf(item) === -1)
-            root.clickTargets = root.clickTargets.concat([item]);
-    }
-    function unregisterClickTarget(item) {
-        var idx = root.clickTargets.indexOf(item);
-        if (idx !== -1) {
-            var next = root.clickTargets.slice();
-            next.splice(idx, 1);
-            root.clickTargets = next;
-        }
-    }
-    function switchPanelFrom(panel, direction) {
-        return false;
+    SysStats {
+        id: stats
+        active: root.active
     }
 
-    // Real Omarchy's Bar.run() - vendored widgets (e.g. qs.Ui Workspaces)
-    // call `bar.run(shellCommand)` to dispatch hyprctl/etc without each
-    // widget needing its own Process item.
-    function run(command) {
-        if (!command) return;
-        Util.execDetached(command);
-    }
-
-    // Every live widget instance across all three sections, keyed by
-    // moduleId - a widget id appears once (each id can only be enabled in
-    // one section/spot per plugin-layout.json), so broadcast() only ever
-    // needs to notify one instance here (unlike Omarchy's multi-monitor
-    // case, where the same widget id runs once per bar/screen).
-    property var moduleWidgetsMap: ({})
-
-    function moduleWidgets(moduleId) {
-        var item = moduleWidgetsMap[moduleId];
-        return item ? [item] : [];
-    }
-
-    property var layout: ({
-            "left": [],
-            "center": [],
-            "right": []
-        })
-
-    function applyLayout(json) {
-        try {
-            root.layout = JSON.parse(json);
-        } catch (e) {
-            console.warn("Bar: failed to load plugin-layout.json: " + e);
-        }
-    }
-
-    FileView {
-        id: layoutFile
-        path: `${Quickshell.env("HOME")}/.config/quickshell/plugin-layout.json`
-        // Live-reloads so quickshell/scripts/plugin.sh enable/disable takes
-        // effect immediately, same as Colors.qml watching theme.json -
-        // no bar restart needed to pick up a plugin change.
-        watchChanges: true
-        onFileChanged: reload()
-        onLoaded: root.applyLayout(text())
-        onTextChanged: root.applyLayout(text())
-    }
-
-    // Hover detection for auto-hide, declared before the plugin content so
-    // it sits underneath in stacking order - acceptedButtons: Qt.NoButton
-    // means it never accepts a press, so clicks fall through to the
-    // widgets/buttons above it instead of being eaten here. Covers the full
-    // window, so it still senses the mouse over the 1px collapsed sliver at
-    // the screen's top edge.
+    // Under the widgets; NoButton lets clicks through while still tracking
+    // hover over the whole strip.
     MouseArea {
         anchors.fill: parent
         hoverEnabled: true
@@ -210,61 +70,89 @@ PanelWindow {
         onExited: hideTimer.restart()
     }
 
-    Timer {
-        id: hideTimer
-        interval: 2000
-        onTriggered: root.revealed = false
-    }
-
-    // Plugin content fades out with the collapse instead of being squashed
-    // into the 1px sliver mid-animation.
     Item {
-        id: content
         anchors.fill: parent
         opacity: root.revealed ? 1 : 0
-        Behavior on opacity {
-            NumberAnimation { duration: 100 }
-        }
+        visible: opacity > 0
 
-        PluginRow {
-            ids: root.layout.left
-            bar: root
-            anchors {
-                left: parent.left
-                top: parent.top
-                bottom: parent.bottom
-                leftMargin: 6
+        Behavior on opacity {
+            NumberAnimation {
+                duration: 100
             }
         }
 
-        PluginRow {
-            ids: root.layout.center
+        Workspaces {
+            anchors.left: parent.left
+            anchors.leftMargin: 6
+            anchors.verticalCenter: parent.verticalCenter
+        }
+
+        Clock {
             bar: root
             anchors.centerIn: parent
         }
 
-        PluginRow {
-            ids: root.layout.right
-            bar: root
-            anchors {
-                right: parent.right
-                top: parent.top
-                bottom: parent.bottom
-                rightMargin: 6
+        Row {
+            anchors.right: parent.right
+            anchors.rightMargin: 6
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            spacing: 2
+
+            Wifi {
+                bar: root
+                height: parent.height
+            }
+            Audio {
+                bar: root
+                height: parent.height
+            }
+            Cpu {
+                bar: root
+                stats: stats
+                height: parent.height
+            }
+            Ram {
+                bar: root
+                stats: stats
+                height: parent.height
+            }
+            Gpu {
+                bar: root
+                stats: stats
+                height: parent.height
+            }
+            Battery {
+                bar: root
+                height: parent.height
+            }
+            Screenshot {
+                bar: root
+                height: parent.height
+            }
+            Record {
+                bar: root
+                height: parent.height
+            }
+            Clipboard {
+                bar: root
+                height: parent.height
+            }
+            Settings {
+                bar: root
+                height: parent.height
+            }
+            Power {
+                bar: root
+                height: parent.height
             }
         }
     }
 
-    // Renders whatever showTooltip()/hideTooltip() (above) last set - the
-    // shared bar-level tooltip real Omarchy's WidgetButton/BarIconButton
-    // expect, distinct from PluginRow's own per-plugin manifest-tooltip
-    // popup (that one's driven by static manifest text; this one's driven
-    // live by widget hover state).
     PopupWindow {
-        id: sharedTooltip
-        visible: root.tooltipText.length > 0
-        implicitWidth: sharedTooltipLabel.implicitWidth + 12
-        implicitHeight: sharedTooltipLabel.implicitHeight + 8
+        visible: root.tooltipText !== "" && root.revealed
+        implicitWidth: tooltipLabel.implicitWidth + 12
+        implicitHeight: tooltipLabel.implicitHeight + 8
         color: Colors.selection
 
         anchor {
@@ -275,12 +163,12 @@ PanelWindow {
         }
 
         Text {
-            id: sharedTooltipLabel
+            id: tooltipLabel
             anchors.centerIn: parent
             text: root.tooltipText
             color: Colors.selectionForeground
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 10
+            font.family: Colors.font
+            font.pixelSize: 11
         }
     }
 }
