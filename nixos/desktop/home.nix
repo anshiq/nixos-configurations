@@ -6,26 +6,27 @@
 }:
 
 let
-  # Single source of truth for every theme's palette (see ../themes/) and
-  # the pure render functions turning one into ghostty/kitty/hyprlock/
-  # Quickshell/Hyprland-border config text (../themes/generators.nix).
-  # Adding a theme = add one file under ../themes/ - everything below
-  # iterates `themes` and `schedule`, no other change needed here.
+  # Every theme's palette (../themes/) and the functions rendering one into
+  # each app's config format (../themes/generators.nix). Adding a theme = add
+  # one file under ../themes/; everything below iterates `themes`/`schedule`.
   themes = import ../themes;
   gen = import ../themes/generators.nix { inherit lib; };
   schedule = import ../themes/schedule.nix;
 
-  # Papirus-Dark's own folders are hardcoded blue (`folder.svg` etc. bake
-  # in #1d99f3-ish blue directly, independent of every terminal-app theme
-  # generated above - GTK apps never touch ../themes/ at all) - this is the
-  # one remaining system-wide blue surface once yazi's icon table (see
-  # ../themes/generators.nix's toYaziTheme) was fixed. Papirus itself ships
-  # every color as a `folder-<color>-*.svg` set (see `folder-white-*.svg`
-  # etc under any size dir); `papirus-folders` is the upstream tool that
-  # swaps the default folder icons for one of those - run once here, at
-  # build time inside the Nix sandbox, on a writable copy (the fetched
-  # theme itself is read-only in the store), rather than mutating anything
-  # at runtime. "white" was the same choice already made for yazi.
+  # Desktop commands (theme-switch, bluelight, screen-record, ...).
+  scripts = import ./scripts { inherit pkgs; };
+
+  # Graphical-session services start with the UWSM session and stop with it.
+  sessionTarget = config.wayland.systemd.target;
+  sessionUnit = description: {
+    Description = description;
+    ConditionEnvironment = "WAYLAND_DISPLAY";
+    After = [ sessionTarget ];
+    PartOf = [ sessionTarget ];
+  };
+
+  stateDir = "${config.home.homeDirectory}/.local/state/desktop";
+
   papirusNoBlue =
     pkgs.runCommand "papirus-dark-no-blue"
       {
@@ -55,289 +56,101 @@ let
         gtk-update-icon-cache -f -t "$out/share/icons/Papirus-Dark"
       '';
 
-  # Third-party bar-widget plugins - see ../plugins/default.nix. Read
-  # directly (not via IFD on the fetched `src`s - see the activation script
-  # below for why) so evaluating this file never needs network access or a
-  # plugin's source to already be built.
-  externalPlugins = import ../plugins { inherit pkgs; };
-
-  # First-party plugin manifests, read directly from the checkout (real
-  # files already on disk, safe at eval time - no IFD). Combined with
-  # `externalPlugins` below into plugin-registry.json: the full list of
-  # every plugin the shell knows about, independent of whether it's
-  # currently enabled on the bar (that's plugin-layout.json's job, edited by
-  # quickshell/scripts/plugin.sh).
-  # Excludes externalPlugins ids: those directories are activation-script-
-  # managed (see home.activation.quickshellPlugins below, which fills them
-  # with per-file symlinks into each plugin's fetched store path and marks
-  # them with a `.nix-managed` file) and already counted below via
-  # externalPlugins directly. Reading their manifest.json *here* instead
-  # would follow a tracked symlink to an absolute store path, which errors
-  # ("forbidden in pure evaluation mode") once that symlink's target is
-  # committed and evaluation runs through git's filtered source tree rather
-  # than the live filesystem.
-  builtinPluginDirs = builtins.attrNames (
-    lib.filterAttrs (name: type: type == "directory" && !(externalPlugins ? ${name})) (
-      builtins.readDir ../quickshell/plugins
-    )
-  );
-  builtinPluginManifest =
-    dir: builtins.fromJSON (builtins.readFile (../quickshell/plugins + "/${dir}/manifest.json"));
-  # `origin` (builtin/external) is separate from the manifest's own `kind`
-  # field (which describes the widget type, e.g. "bar-widget") - added
-  # rather than overwritten.
-  pluginRegistry =
-    (map (dir: (builtinPluginManifest dir) // { origin = "builtin"; }) builtinPluginDirs)
-    ++ (lib.mapAttrsToList (id: p: {
-      inherit id;
-      name = p.name;
-      kind = "bar-widget";
-      origin = "external";
-    }) externalPlugins);
-
-  # Checked into version control (nixos/desktop/wallpapers/) - the same file
-  # is used for the desktop background (swaybg), hyprlock, and the SDDM
-  # greeter theme (see desktop/system.nix), so all three always match.
+  # Static lock-screen/greeter fallback image (the desktop background is
+  # rendered per theme by render-wallpaper).
   wallpaper = ./wallpapers/shortcuts-latest.png;
   terminal = "ghostty";
   browser = "google-chrome-stable";
 
-  # Real Omarchy ships `/usr/share/omarchy/bin/omarchy-clipboard-{paste-text,
-  # paste-file,open}` as first-class OS binaries; every action in the
-  # (manually plugin.sh-added) io.github.vuhuy.clipboard-manager bar
-  # plugin's Panel.qml shells out to them via `$OMARCHY_PATH/bin/...`
-  # (Panel.qml defaults OMARCHY_PATH to "/usr/share/omarchy", which doesn't
-  # exist here). This system has no such distro-level helpers, so this is
-  # a minimal stand-in: reads clipboard-history-sync.sh's
-  # clipboard-history.json by index, wl-copy's the entry, and - unless
-  # --copy-only - sends Shift+Insert via wtype so the paste also lands in
-  # the focused app (Shift+Insert works in both terminals and most GUI text
-  # fields, which is presumably why real Omarchy's own helper uses it too).
-  # `omarchy-clipboard-open`'s "open" has no real equivalent to replicate
-  # here, so it's approximated as: open with xdg-open if the entry is a
-  # URL or an image file, else just copy it.
-  omarchyClipboardShim = pkgs.symlinkJoin {
-    name = "omarchy-clipboard-shim";
-    paths = [
-      (pkgs.writeShellApplication {
-        name = "omarchy-clipboard-paste-text";
-        runtimeInputs = [
-          pkgs.jq
-          pkgs.wl-clipboard
-          pkgs.wtype
-        ];
-        text = ''
-          copy_only=false
-          shift_insert=false
-          history_index=""
+  # Moves runtime state from the paths used before ~/.local/state/desktop.
+  # Only moves when the new file is missing; never fails activation.
+  migrateState = pkgs.writeShellScript "migrate-desktop-state" ''
+    PATH=${
+      lib.makeBinPath [
+        pkgs.coreutils
+        pkgs.jq
+      ]
+    }
+    state="$HOME/.local/state/desktop"
+    mkdir -p "$state" || exit 0
 
-          while [ "$#" -gt 0 ]; do
-            case "$1" in
-              --copy-only)
-                copy_only=true
-                shift
-                ;;
-              --shift-insert)
-                shift_insert=true
-                shift
-                ;;
-              --history-index)
-                history_index="$2"
-                shift 2
-                ;;
-              *)
-                shift
-                ;;
-            esac
-          done
+    move() {
+      if [ -e "$1" ] && [ ! -e "$2" ]; then
+        mv -f "$1" "$2" || true
+      fi
+    }
 
-          history_file="$HOME/.local/state/omarchy/clipboard-history.json"
-          [ -f "$history_file" ] || exit 0
-          [ -n "$history_index" ] || exit 0
+    move "$HOME/.local/state/quickshell/theme.json" "$state/theme.json"
+    move "$HOME/.local/state/quickshell/lockscreen.json" "$state/lockscreen.json"
+    move "$HOME/.local/state/theme/current" "$state/theme"
+    move "$HOME/.cache/waybar-bluelight-temp" "$state/bluelight-temp"
+    move "$HOME/.local/state/wallpaper/wallpaper.png" "$state/wallpaper.png"
 
-          text=$(jq -r --argjson i "$history_index" '.[$i].text // empty' "$history_file")
-          [ -n "$text" ] || exit 0
+    old_idle="$HOME/.local/state/quickshell/idle-settings.json"
+    if [ -e "$old_idle" ] && [ ! -e "$state/idle.json" ]; then
+      if jq '{lock: (.lockMinutes // 30), dpms: (.screenOffMinutes // 32), suspend: (.suspendMinutes // 35)}' \
+        "$old_idle" > "$state/idle.json.tmp" 2>/dev/null; then
+        mv -f "$state/idle.json.tmp" "$state/idle.json" && rm -f "$old_idle"
+      else
+        rm -f "$state/idle.json.tmp"
+      fi
+    fi
 
-          printf '%s' "$text" | wl-copy
-
-          if [ "$copy_only" = false ] && [ "$shift_insert" = true ]; then
-            sleep 0.15
-            wtype -M shift -k Insert -m shift
-          fi
-        '';
-      })
-      (pkgs.writeShellApplication {
-        name = "omarchy-clipboard-paste-file";
-        runtimeInputs = [
-          pkgs.wl-clipboard
-          pkgs.wtype
-        ];
-        text = ''
-          copy_only=false
-          if [ "''${1:-}" = "--copy-only" ]; then
-            copy_only=true
-            shift
-          fi
-
-          mime="''${1:-}"
-          path="''${2:-}"
-          [ -n "$mime" ] && [ -n "$path" ] || exit 0
-          [ -f "$path" ] || exit 0
-
-          wl-copy --type "$mime" < "$path"
-
-          if [ "$copy_only" = false ]; then
-            sleep 0.15
-            wtype -M shift -k Insert -m shift
-          fi
-        '';
-      })
-      (pkgs.writeShellApplication {
-        name = "omarchy-clipboard-open";
-        runtimeInputs = [
-          pkgs.jq
-          pkgs.wl-clipboard
-          pkgs.xdg-utils
-        ];
-        text = ''
-          history_index=""
-          while [ "$#" -gt 0 ]; do
-            case "$1" in
-              --history-index)
-                history_index="$2"
-                shift 2
-                ;;
-              *)
-                shift
-                ;;
-            esac
-          done
-
-          history_file="$HOME/.local/state/omarchy/clipboard-history.json"
-          [ -f "$history_file" ] || exit 0
-          [ -n "$history_index" ] || exit 0
-
-          entry_type=$(jq -r --argjson i "$history_index" '.[$i].type // empty' "$history_file")
-
-          if [ "$entry_type" = "image" ]; then
-            path=$(jq -r --argjson i "$history_index" '.[$i].path // empty' "$history_file")
-            [ -n "$path" ] && xdg-open "$path"
-          else
-            text=$(jq -r --argjson i "$history_index" '.[$i].text // empty' "$history_file")
-            [ -n "$text" ] || exit 0
-            case "$text" in
-              http://* | https://*)
-                xdg-open "$text"
-                ;;
-              *)
-                printf '%s' "$text" | wl-copy
-                ;;
-            esac
-          fi
-        '';
-      })
-    ];
-  };
-
-  # Builds a hyprlock settings attrset from a theme (see ../themes/). One
-  # static conf is rendered per theme below and flipped between by
-  # theme-switch.sh at runtime, since programs.hyprlock only generates a
-  # single ~/.config/hypr/hyprlock.conf from one settings block.
-  hyprlockSettings = c: {
-    general = {
-      hide_cursor = true;
-      grace = 2;
-    };
-    background = [
-      {
-        path = toString wallpaper;
-        blur_passes = 2;
-        blur_size = 6;
-        color = "rgb(${c.background})";
-      }
-    ];
-    input-field = [
-      {
-        size = "300, 52";
-        position = "0, -40";
-        monitor = "";
-        dots_center = true;
-        fade_on_empty = false;
-        # "monospace" generic family so `omarchy font set` (nixos/scripts/omarchy)
-        # can repoint it via a fontconfig alias without a rebuild.
-        font_family = "monospace";
-        font_color = "rgb(${c.foreground})";
-        inner_color = "rgb(${c.darkBackground})";
-        outer_color = "rgb(${c.accent})";
-        outline_thickness = 2;
-        placeholder_text = "Password";
-        shadow_passes = 0;
-      }
-    ];
-    label = [
-      {
-        monitor = "";
-        text = "cmd[update:1000] echo \"$(date +'%H:%M')\"";
-        color = "rgb(${c.brightForeground})";
-        font_size = 72;
-        # "monospace" generic family so `omarchy font set` (nixos/scripts/omarchy)
-        # can repoint it via a fontconfig alias without a rebuild.
-        font_family = "monospace";
-        position = "0, 100";
-        halign = "center";
-        valign = "center";
-      }
-    ];
-  };
+    # helix/config.toml names the theme "current"; point it at the active one.
+    helix_themes="$HOME/.config/helix/themes"
+    theme=$(cat "$state/theme" 2>/dev/null || true)
+    if [ -n "$theme" ] && [ ! -e "$helix_themes/current.toml" ] && [ -e "$helix_themes/$theme.toml" ]; then
+      ln -sfn "$helix_themes/$theme.toml" "$helix_themes/current.toml" || true
+    fi
+    exit 0
+  '';
 in
 {
-  home.packages = with pkgs; [
-    bibata-cursors
-    brightnessctl
-    cliphist
-    flameshot
-    grim
-    hypridle
-    hyprlock
-    hyprpicker
-    hyprsunset
-    jq # quickshell/scripts/plugin.sh
-    libnotify
-    librsvg # waybar/scripts/render-wallpaper.sh's rsvg-convert
-    obs-studio
-    pamixer
-    playerctl
-    quickshell
-    slurp
-    swaybg
-    wl-clipboard
-    wtype
-    xdg-utils
-  ];
+  home.packages =
+    (with pkgs; [
+      brightnessctl
+      cliphist
+      flameshot
+      hypridle
+      hyprpicker
+      hyprsunset
+      libnotify
+      obs-studio # still launched by the bar's record plugin
+      pamixer # still used by the bar's volume plugin
+      playerctl
+      quickshell
+      slurp
+      swaybg
+      wf-recorder
+      wl-clipboard
+      wtype
+      xdg-utils
+    ])
+    ++ (with scripts; [
+      theme-switch
+      theme-status
+      bluelight
+      screenshot
+      screen-record
+      render-wallpaper
+      idle-settings
+      theme-warmth-ramp
+    ]);
 
   home.sessionVariables = {
     BROWSER = browser;
     TERMINAL = terminal;
     NIXOS_OZONE_WL = "1";
     ELECTRON_OZONE_PLATFORM_HINT = "auto";
-    # Points plugins/io.github.vuhuy.clipboard-manager/Panel.qml (and any
-    # other plugin expecting real Omarchy's distro-level helper binaries)
-    # at our stand-ins instead of its "/usr/share/omarchy" default - see
-    # omarchyClipboardShim above.
-    OMARCHY_PATH = "${omarchyClipboardShim}";
   };
 
   programs.ghostty = {
     enable = true;
     enableFishIntegration = true;
-    # Config is deployed verbatim from ./ghostty/config-{day,night} - see
-    # xdg.configFile. The active ghostty/config is a runtime symlink flipped
-    # by theme-switch.sh, same pattern as waybar/style.css below.
+    # ghostty/config itself is a symlink theme-switch points at config-<theme>.
   };
 
-  # Video/audio playback (files and streams). hwdec = "auto-safe" lets mpv
-  # use DRM/Wayland hardware decode when available and fall back to
-  # software decode otherwise, rather than forcing one path.
+  # hwdec = "auto-safe": hardware decode when available, software otherwise.
   programs.mpv = {
     enable = true;
     config = {
@@ -345,328 +158,174 @@ in
     };
   };
 
-  # Hyprland >= 0.55 configs are Lua (hyprlang is deprecated). The module's
-  # `settings` generator emits hyprlang-style options that 0.55+ rejects,
-  # so the full config lives in ./hypr/hyprland.lua and is deployed
-  # verbatim - same pattern as ./helix and ./yazi.
-  wayland.windowManager.hyprland = {
-    enable = true;
-    systemd.enable = false; # UWSM owns the session lifecycle.
-    xwayland.enable = true;
-  };
-
-  # Static configs deployed verbatim from dedicated directories
-  # (same pattern as ./helix and ./yazi).
   xdg.configFile = {
+    # Hyprland >= 0.55 is configured in Lua, deployed verbatim. The system
+    # module (desktop/system.nix) installs Hyprland; UWSM runs the session.
     "hypr/hyprland.lua".source = ../hypr/hyprland.lua;
-    # Quickshell replacement for waybar/wofi/mako/hyprlock, migrated in
-    # phases - see /home/nixos/.claude/plans/stateless-wishing-willow.md.
-    # Bar/launcher/power menu/notifications/lock screen all have full parity
-    # now (Phase 7 done - see LockScreen.qml); waybar/wofi are retired.
-    # hyprlock stays installed as a manual fallback for the lock screen
-    # only, not autostarted. Whole directory deployed since the QML config
-    # is split across multiple files (Bar.qml, Colors.qml, per-module files).
-    #
-    # Deliberately an *out-of-store* symlink straight into the working tree
-    # rather than `.source = ../quickshell` (the pattern every other config
-    # here uses). Quickshell reloads QML from disk on the fly, so pointing at
-    # the checkout makes editing a widget or writing a new plugin a
-    # save-and-look loop instead of a `cp -r` + `nixos-rebuild switch` round
-    # trip - which is the entire reason for the plugin system.
-    #
-    # It MUST be declared here rather than hand-made with `ln -s`. A hand-made
-    # symlink is a file home-manager does not own, and checkLinkTargets aborts
-    # the whole activation on one of those *before linking anything*, so every
-    # other file under ~/.config silently stops updating while `nixos-rebuild
-    # switch` still exits 0. That is exactly what happened here, and it is why
-    # the theme-toggle and keybind fixes never reached the running system
-    # despite being committed and built. See home-manager.backupFileExtension
-    # in flake.nix for the second layer of protection.
-    #
-    # Trade-off to know about: the running desktop shell now depends on this
-    # checkout existing at this path. Moving or deleting it leaves the session
-    # with no bar/launcher/lock screen (hyprlock stays installed as the
-    # documented manual fallback - see LockScreen.qml).
-    "quickshell".source = config.lib.file.mkOutOfStoreSymlink "/etc/nixos/quickshell";
-    "waybar/scripts/power-menu.sh" = {
-      source = ../waybar/scripts/power-menu.sh;
-      executable = true;
-    };
-    "waybar/scripts/theme-switch.sh" = {
-      source = ../waybar/scripts/theme-switch.sh;
-      executable = true;
-    };
-    "waybar/scripts/bluelight-toggle.sh" = {
-      source = ../waybar/scripts/bluelight-toggle.sh;
-      executable = true;
-    };
-    "waybar/scripts/bluelight-status.sh" = {
-      source = ../waybar/scripts/bluelight-status.sh;
-      executable = true;
-    };
-    "waybar/scripts/bluelight-adjust.sh" = {
-      source = ../waybar/scripts/bluelight-adjust.sh;
-      executable = true;
-    };
-    "waybar/scripts/theme-status.sh" = {
-      source = ../waybar/scripts/theme-status.sh;
-      executable = true;
-    };
-    "waybar/scripts/theme-warmth-ramp.sh" = {
-      source = ../waybar/scripts/theme-warmth-ramp.sh;
-      executable = true;
-    };
-    "waybar/scripts/idle-unless-charging.sh" = {
-      source = ../waybar/scripts/idle-unless-charging.sh;
-      executable = true;
-    };
-    "waybar/scripts/battery-notify.sh" = {
-      source = ../waybar/scripts/battery-notify.sh;
-      executable = true;
-    };
-    "waybar/scripts/screenshot.sh" = {
-      source = ../waybar/scripts/screenshot.sh;
-      executable = true;
-    };
-    "waybar/scripts/render-wallpaper.sh" = {
-      source = ../waybar/scripts/render-wallpaper.sh;
-      executable = true;
-    };
 
-    # Deployed to a stable path so hyprland.lua (verbatim, untemplated) can
-    # point swaybg at it without a Nix store path baked into the Lua file.
+    # An out-of-store symlink into the checkout so Quickshell's live reload
+    # picks up QML edits without a rebuild. It must be declared here: a
+    # hand-made symlink is a file home-manager does not own and would block
+    # activation. The shell therefore needs the checkout at /etc/nixos.
+    "quickshell".source = config.lib.file.mkOutOfStoreSymlink "/etc/nixos/quickshell";
+
+    # Stock lock-screen wallpaper (LockScreen.qml, settings app, greeter-sync).
     "wallpapers/wallpaper.png".source = wallpaper;
-    # __TOKEN__ template rendered per-theme by render-wallpaper.sh above -
-    # see that script and the SVG's own header comment.
-    "wallpapers/shortcuts-latest.svg".source = ./wallpapers/shortcuts-latest.svg;
+
+    # theme-switch's data: one palette per theme (copied to
+    # ~/.local/state/desktop/theme.json on switch) and the schedule.
+    "desktop/schedule.json".text = builtins.toJSON schedule;
   }
-  # style.css, ghostty/config, kitty/kitty.conf, hypr/hyprlock.conf, and
-  # hypr/colors.lua are NOT managed directly: each is a runtime symlink
-  # flipped between per-theme variants (generated below) by
-  # theme-switch.sh, so home-manager activation doesn't fight the switcher
-  # while the session is running.
-  #
-  # One variant of each per-theme file is generated per entry in
-  # ../themes/ (see ../themes/generators.nix) - adding a theme there
-  # automatically gets a full file set here, no change needed in this
-  # block.
-  // (lib.concatMapAttrs (name: theme: {
+  # Per-theme variants. The active ghostty/config, kitty/kitty.conf,
+  # hypr/colors.lua, helix/themes/current.toml, yazi/theme.toml and
+  # lazygit/config.yml are symlinks theme-switch repoints at runtime, so they
+  # are deliberately not managed here.
+  // lib.concatMapAttrs (name: theme: {
+    "desktop/themes/${name}.json".text = builtins.toJSON (gen.toQuickshellTheme theme);
     "ghostty/config-${name}".text = gen.toGhosttyConfig theme;
     "kitty/kitty-${name}.conf".text = gen.toKittyConfig theme;
     "hypr/colors-${name}.lua".text = gen.toHyprColorsLua theme;
-    "hypr/hyprlock-${name}.conf".text = lib.hm.generators.toHyprconf {
-      attrs = hyprlockSettings theme;
-      importantPrefixes = [
-        "$"
-        "bezier"
-        "monitor"
-        "size"
-        "source"
-      ];
-    };
     "helix/themes/${name}.toml".text = gen.toHelixTheme theme;
     "yazi/theme-${name}.toml".text = gen.toYaziTheme theme;
     "lazygit/config-${name}.yml".text = gen.toLazygitTheme theme;
-  }) themes)
-  // {
-    # theme-switch.sh's own view of what themes exist: one name per line
-    # (cycle order for `next`), a "name kind" table (for `toggle`'s
-    # day/night lookup), and a "time name" table (for the no-arg
-    # clock-based lookup, from ../themes/schedule.nix).
-    "waybar/scripts/themes.list".text = lib.concatStringsSep "\n" (builtins.attrNames themes) + "\n";
-    "waybar/scripts/theme-kinds.list".text =
-      lib.concatStringsSep "\n" (lib.mapAttrsToList (name: t: "${name} ${t.kind}") themes) + "\n";
-    "waybar/scripts/schedule.list".text =
-      lib.concatStringsSep "\n" (map (e: "${e.time} ${e.theme}") schedule) + "\n";
-  };
+  }) themes;
 
-  # The App Config Rotator config - plain JSON so the Quickshell plugin
-  # (quickshell/plugins/user.appcredrotator/) can read it with
-  # JSON.parse() and needs no YAML parser or subprocess of any kind; see
-  # ../appcredrotator/README.md for the schema and ../.../Panel.qml's
-  # module comment for the full read/write/apply design. Lives at
-  # $XDG_DATA_HOME/appcredrotator/apps.json so the plugin's hard-coded
-  # `Quickshell.env("HOME") + "/.local/share/appcredrotator/apps.json"`
-  # resolves without any env setup. The plugin also writes its own
-  # state.json next to it at runtime (paths only, no secrets - never
-  # Nix-managed, never committed). Edit ../appcredrotator/apps.json in
-  # this repo and `nixos-rebuild switch` to change the panel's contents
-  # declaratively.
+  # App Config Rotator config (quickshell/plugins/user.appcredrotator/),
+  # read by the plugin from ~/.local/share/appcredrotator/apps.json. See
+  # ../appcredrotator/README.md.
   xdg.dataFile."appcredrotator/apps.json".source =
     config.lib.file.mkOutOfStoreSymlink /etc/nixos/appcredrotator/apps.json;
-  # quickshell/ is deployed as a single out-of-store symlink to the live
-  # checkout above (so QML edits are picked up without a rebuild), which
-  # means home-manager can't override individual files inside it the way
-  # xdg.configFile does elsewhere. Each theme's data file is instead written
-  # into the checkout directly on every activation - QML stays hand-edited,
-  # theme data stays Nix-generated. theme-switch.sh then copies whichever of
-  # these is active into ~/.local/state/quickshell/theme.json (see there for
-  # why it's a copy and not a symlink).
-  home.activation.quickshellThemes = lib.hm.dag.entryAfter [ "writeBoundary" ] (
-    lib.concatStringsSep "\n" (
-      lib.mapAttrsToList (name: theme: ''
-        install -m 644 ${pkgs.writeText "theme-${name}.json" (builtins.toJSON (gen.toQuickshellTheme theme))} \
-          "/etc/nixos/quickshell/theme-${name}.json"
-      '') themes
-    )
-  );
 
-  # Same live-checkout constraint as quickshellThemes above, for plugins:
-  # - plugin-registry.json (every known plugin, builtin + external - see
-  #   `pluginRegistry` above) is written into the checkout the same way
-  #   theme-<name>.json is, for quickshell/PluginRegistry.qml to read.
-  # - Each ../plugins/default.nix entry's fetched `src` is placed under
-  #   quickshell/plugins/<id>, alongside the hand-written user.* plugin
-  #   directories - PluginRow.qml resolves both the same way (by id under
-  #   ~/.config/quickshell/plugins/), so an external plugin is
-  #   indistinguishable from a first-party one once in place.
-  #
-  #   `<id>` is a real (writable) directory with each of `src`'s files
-  #   symlinked in individually - NOT `<id>` itself symlinked whole to
-  #   `src` (a read-only Nix store path) - because a multi-file plugin
-  #   needs a real qmldir alongside its own files (see
-  #   quickshell/scripts/plugin.sh's generate_plugin_qmldir for why: a
-  #   plugin whose widget instantiates sibling files as bare types, e.g.
-  #   Panel.qml referencing a sibling Model.qml, hits "X is not a type" at
-  #   runtime without one - Quickshell's implicit per-directory type
-  #   synthesis doesn't reliably apply under its own `qs:` URL scheme). A
-  #   `.nix-managed` marker distinguishes these from hand-written/`plugin.sh
-  #   add`-installed directories, so the stale-cleanup below only ever
-  #   removes directories this activation itself created.
-  home.activation.quickshellPlugins = lib.hm.dag.entryAfter [ "writeBoundary" ] (
-    let
-      pluginsDir = "/etc/nixos/quickshell/plugins";
-    in
-    ''
-      install -m 644 ${pkgs.writeText "plugin-registry.json" (builtins.toJSON pluginRegistry)} \
-        "/etc/nixos/quickshell/plugin-registry.json"
+  home.activation.migrateDesktopState = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+    if [ -z "''${DRY_RUN:-}" ]; then
+      ${migrateState} || true
+    fi
+  '';
 
-      for existing in "${pluginsDir}"/*; do
-        [ -f "$existing/.nix-managed" ] || continue
-        id="$(basename "$existing")"
-        case " ${lib.concatStringsSep " " (builtins.attrNames externalPlugins)} " in
-          *" $id "*) : ;;
-          *) rm -rf "$existing" ;;
-        esac
-      done
-    ''
-    + lib.concatStringsSep "\n" (
-      lib.mapAttrsToList (id: plugin: ''
-        target="${pluginsDir}/${id}"
-        rm -rf "$target"
-        mkdir -p "$target"
-        for f in ${plugin.src}/*; do
-          ln -sfn "$f" "$target/$(basename "$f")"
-        done
-        touch "$target/.nix-managed"
-        if [ ! -e "$target/qmldir" ]; then
-          {
-            for f in "$target"/*.qml; do
-              [ -e "$f" ] || continue
-              base=$(basename "$f" .qml)
-              echo "$base 1.0 $(basename "$f")"
-            done
-          } > "$target/qmldir"
-        fi
-      '') externalPlugins
-    )
-  );
-
-  # waybar/wofi removed in Phase 2/4 - Quickshell's Bar/Launcher (see
-  # ../quickshell/) have full parity and reuse the scripts above directly.
-
-  # mako removed in Phase 6 - notifications are now served by Quickshell's
-  # NotificationServer (see quickshell/Notifications.qml), which registers
-  # as the org.freedesktop.Notifications DBus provider itself.
-  # Idle timeouts (lock/screen-off/suspend) used to be static values baked
-  # into a home-manager-generated (read-only) hypridle.conf - changing them
-  # meant editing this file and rebuilding. They're now runtime-configurable
-  # from the power menu's settings panel (see quickshell/PowerMenu.qml), so
-  # hypridle.conf itself is generated by quickshell/scripts/idle-settings.sh
-  # from ~/.local/state/quickshell/idle-settings.json instead of by
-  # home-manager - hence no `services.hypridle` module usage (that module
-  # owns ~/.config/hypr/hypridle.conf itself, which would fight the script's
-  # writes) and a hand-rolled systemd unit below instead. `generate` runs as
-  # ExecStartPre so hypridle always has a config to read, even on first run
-  # before any setting has been changed (falls back to the script's
-  # defaults). The settings panel calls `idle-settings.sh set <mins>...`
-  # directly, which rewrites the conf and restarts this unit itself.
-  # All systemd.user services/timers in this module are collected into the
-  # two assignments below (rather than one dotted `systemd.user.services.foo
-  # = ...;` per unit) so the schedule-driven theme units - one per
-  # ../themes/schedule.nix entry, name/count not known until that list is
-  # read - can be spliced in with `//`/`lib.listToAttrs` alongside the
-  # hand-written ones without Nix's attribute-set-literal rules treating
-  # "systemd.user.services.hypridle = ..." and a later flat
-  # "systemd.user.services = ..." as conflicting definitions of the same
-  # path.
   systemd.user.services = {
-    hypridle = {
-      Unit = {
-        ConditionEnvironment = "WAYLAND_DISPLAY";
-        Description = "hypridle";
-        After = [ config.wayland.systemd.target ];
-        PartOf = [ config.wayland.systemd.target ];
-      };
-      Install.WantedBy = [ config.wayland.systemd.target ];
+    quickshell = {
+      Unit = sessionUnit "Quickshell desktop shell";
+      Install.WantedBy = [ sessionTarget ];
       Service = {
-        ExecStartPre = "%h/.config/quickshell/scripts/idle-settings.sh generate";
+        ExecStart = "${pkgs.quickshell}/bin/quickshell";
+        Restart = "on-failure";
+        RestartSec = "2";
+        Environment = [ "TZDIR=/etc/zoneinfo" ];
+      };
+    };
+
+    # Applies the scheduled theme at login (also renders the wallpaper swaybg
+    # shows, and starts the blue-light filter for night themes).
+    theme-init = {
+      Unit = sessionUnit "Apply the scheduled desktop theme";
+      Install.WantedBy = [ sessionTarget ];
+      Service = {
+        Type = "oneshot";
+        ExecStart = "${scripts.theme-switch}/bin/theme-switch";
+      };
+    };
+
+    # Ordered after theme-init so the first start finds a rendered wallpaper;
+    # theme-switch restarts it after each re-render.
+    swaybg = {
+      Unit = sessionUnit "Desktop wallpaper" // {
+        After = [
+          sessionTarget
+          "theme-init.service"
+        ];
+        ConditionPathExists = "${stateDir}/wallpaper.png";
+      };
+      Install.WantedBy = [ sessionTarget ];
+      Service = {
+        ExecStart = "${pkgs.swaybg}/bin/swaybg -i ${stateDir}/wallpaper.png -m fill";
+        Restart = "on-failure";
+      };
+    };
+
+    # Blue-light filter; started/stopped by bluelight and theme-switch, not at
+    # login directly.
+    hyprsunset = {
+      Unit = sessionUnit "Blue-light filter";
+      Service = {
+        ExecStart = "${scripts.hyprsunset-start}/bin/hyprsunset-start";
+        Restart = "on-failure";
+        RestartSec = "2";
+      };
+    };
+
+    # No services.hypridle module: that would own hypridle.conf, which
+    # idle-settings generates from ~/.local/state/desktop/idle.json.
+    hypridle = {
+      Unit = sessionUnit "Idle lock, screen-off and suspend";
+      Install.WantedBy = [ sessionTarget ];
+      Service = {
+        ExecStartPre = "${scripts.idle-settings}/bin/idle-settings generate";
         ExecStart = "${pkgs.hypridle}/bin/hypridle";
-        Restart = "always";
+        Restart = "on-failure";
         RestartSec = "10";
       };
     };
-    # Polls battery capacity every minute and notifies once at 15% and
-    # again at 5% while discharging (see waybar/scripts/battery-notify.sh)
-    # - the script itself tracks state so each threshold only fires once
-    # per discharge cycle.
+
+    cliphist-text = {
+      Unit = sessionUnit "Clipboard history (text)";
+      Install.WantedBy = [ sessionTarget ];
+      Service = {
+        ExecStart = "${pkgs.wl-clipboard}/bin/wl-paste --type text --watch ${pkgs.cliphist}/bin/cliphist store";
+        Restart = "on-failure";
+        RestartSec = "5";
+      };
+    };
+
+    cliphist-image = {
+      Unit = sessionUnit "Clipboard history (images)";
+      Install.WantedBy = [ sessionTarget ];
+      Service = {
+        ExecStart = "${pkgs.wl-clipboard}/bin/wl-paste --type image --watch ${pkgs.cliphist}/bin/cliphist store";
+        Restart = "on-failure";
+        RestartSec = "5";
+      };
+    };
+
+    hyprpolkitagent = {
+      Unit = sessionUnit "Polkit authentication agent";
+      Install.WantedBy = [ sessionTarget ];
+      Service = {
+        ExecStart = "${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent";
+        Restart = "on-failure";
+        RestartSec = "2";
+      };
+    };
+
+    # NetworkManager secret agent (prompts for Wi-Fi passwords that aren't
+    # stored). Network selection itself is the bar's job; its tray icon is
+    # hidden there.
+    nm-applet = {
+      Unit = sessionUnit "NetworkManager secret agent";
+      Install.WantedBy = [ sessionTarget ];
+      Service = {
+        ExecStart = "${pkgs.networkmanagerapplet}/bin/nm-applet --indicator";
+        Restart = "on-failure";
+        RestartSec = "5";
+      };
+    };
+
     battery-notify = {
       Unit.Description = "Notify on low battery";
       Service = {
         Type = "oneshot";
-        ExecStart = "${config.xdg.configHome}/waybar/scripts/battery-notify.sh";
+        ExecStart = "${scripts.battery-notify}/bin/battery-notify";
       };
     };
-    # Real Omarchy has a built-in `omarchy.clipboard` service that watches
-    # the clipboard and writes ~/.local/state/omarchy/clipboard-history.json;
-    # this system has none, so the io.github.vuhuy.clipboard-manager bar
-    # plugin (manually plugin.sh-added, not Nix-declared - see
-    # plugin-layout.json) had an icon but no history to show. `wl-paste
-    # --watch` runs the sync script below once per clipboard change,
-    # feeding it the new text on stdin.
-    clipboard-history = {
-      Unit = {
-        ConditionEnvironment = "WAYLAND_DISPLAY";
-        Description = "Sync clipboard changes into Omarchy's clipboard-history.json";
-        After = [ config.wayland.systemd.target ];
-        PartOf = [ config.wayland.systemd.target ];
-      };
-      Install.WantedBy = [ config.wayland.systemd.target ];
-      Service = {
-        ExecStart = "${pkgs.wl-clipboard}/bin/wl-paste --type text --watch %h/.config/quickshell/scripts/clipboard-history-sync.sh";
-        Restart = "always";
-        RestartSec = "10";
-      };
-    };
-    # Nudges hyprsunset's warmth forward during sunset-night's 15:00-18:00
-    # ramp window (see waybar/scripts/theme-warmth-ramp.sh) - a no-op the
-    # rest of the day, so the timer below just runs it continuously.
+
     theme-warmth-ramp = {
-      Unit.Description = "Ramp hyprsunset warmth during sunset-night's opening hours";
+      Unit.Description = "Advance sunset-night's blue-light warmth ramp";
       Service = {
         Type = "oneshot";
-        ExecStart = "%h/.config/waybar/scripts/theme-warmth-ramp.sh";
+        ExecStart = "${scripts.theme-warmth-ramp}/bin/theme-warmth-ramp";
       };
     };
   }
-  # One timer+service pair per ../themes/schedule.nix entry - applies to
-  # ghostty, kitty, hyprlock, Quickshell (bar/launcher/notifications), and
-  # Hyprland's own border colors (see waybar/scripts/theme-switch.sh).
-  # `systemctl --user list-timers` shows all of them; each is
-  # independently inspectable as theme-<name>.timer/.service. Also run
-  # once at login (see hypr/hyprland.lua autostart, no-arg
-  # theme-switch.sh) so the session starts on whichever theme's window
-  # contains the current time, without waiting for the next timer tick.
+  # One service+timer pair per ../themes/schedule.nix entry.
   // lib.listToAttrs (
     map (entry: {
       name = "theme-${entry.theme}";
@@ -674,13 +333,14 @@ in
         Unit.Description = "Switch the desktop to the ${entry.theme} theme";
         Service = {
           Type = "oneshot";
-          ExecStart = "%h/.config/waybar/scripts/theme-switch.sh ${entry.theme}";
+          ExecStart = "${scripts.theme-switch}/bin/theme-switch ${entry.theme}";
         };
       };
     }) schedule
   );
 
   systemd.user.timers = {
+    # Two sysfs reads a minute; notify-send only at the thresholds.
     battery-notify = {
       Unit.Description = "Check battery level every minute";
       Timer = {
@@ -689,12 +349,13 @@ in
       };
       Install.WantedBy = [ "timers.target" ];
     };
+    # Only fires inside the 15:00-18:00 ramp window.
     theme-warmth-ramp = {
-      Unit.Description = "Check the hyprsunset warmth ramp every 10 minutes";
-      Timer = {
-        OnBootSec = "1m";
-        OnUnitActiveSec = "10m";
-      };
+      Unit.Description = "Step the blue-light warmth ramp every 10 minutes from 15:00 to 18:00";
+      Timer.OnCalendar = [
+        "*-*-* 15..17:00/10:00"
+        "*-*-* 18:00:00"
+      ];
       Install.WantedBy = [ "timers.target" ];
     };
   }
@@ -705,9 +366,7 @@ in
         Unit.Description = "Trigger the ${entry.theme} theme at ${entry.time}";
         Timer = {
           OnCalendar = "*-*-* ${entry.time}:00";
-          # Catches up on a transition missed while asleep/off at the
-          # trigger time, rather than staying on the previous theme until
-          # the next one fires.
+          # Catch up on a switch missed while asleep or off.
           Persistent = true;
         };
         Install.WantedBy = [ "timers.target" ];
@@ -715,12 +374,53 @@ in
     }) schedule
   );
 
-  # Package + PAM wiring only - no `settings` here, since that generates
-  # ~/.config/hypr/hyprlock.conf directly and would collide with the
-  # hyprlock-day.conf/-night.conf pair below. Those are rendered with the
-  # same generator the module itself uses (see hyprlockSettings above) and
-  # theme-switch.sh symlinks whichever one is active to hyprlock.conf.
-  programs.hyprlock.enable = true;
+  # Manual fallback locker (Quickshell's LockScreen.qml is the real one); its
+  # PAM service is in desktop/system.nix.
+  programs.hyprlock = {
+    enable = true;
+    settings = {
+      general = {
+        hide_cursor = true;
+        grace = 2;
+      };
+      background = [
+        {
+          path = toString wallpaper;
+          blur_passes = 2;
+          blur_size = 6;
+          color = "rgb(0d0d0d)";
+        }
+      ];
+      input-field = [
+        {
+          monitor = "";
+          size = "300, 52";
+          position = "0, -40";
+          dots_center = true;
+          fade_on_empty = false;
+          font_family = "monospace";
+          font_color = "rgb(cccccc)";
+          inner_color = "rgb(000000)";
+          outer_color = "rgb(aaaaaa)";
+          outline_thickness = 2;
+          placeholder_text = "Password";
+          shadow_passes = 0;
+        }
+      ];
+      label = [
+        {
+          monitor = "";
+          text = "$TIME";
+          color = "rgb(ffffff)";
+          font_size = 72;
+          font_family = "monospace";
+          position = "0, 100";
+          halign = "center";
+          valign = "center";
+        }
+      ];
+    };
+  };
 
   xdg.enable = true;
   xdg.mimeApps = {
@@ -779,7 +479,4 @@ in
       @define-color visited_link_color #999999;
     '';
   };
-
-  # Let GUI applications find SSH/GPG credentials through the session keyring.
-  services.gnome-keyring.enable = true;
 }

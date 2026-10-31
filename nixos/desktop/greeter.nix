@@ -1,12 +1,10 @@
 # Boot-time login screen: greetd running the Quickshell greeter in ./greeter,
-# which looks like the Quickshell lock screen (quickshell/LockScreen.qml)
-# instead of SDDM's stock greeter. Replaces the SDDM setup that used to live in
-# desktop/system.nix.
+# which looks like the Quickshell lock screen (quickshell/LockScreen.qml).
 #
 # Flow: greetd starts `cage` (a kiosk compositor that shows one window
 # fullscreen) as the unprivileged `greeter` user; cage runs the Quickshell
 # greeter; on a good password the greeter asks greetd to start the session
-# (UWSM -> Hyprland, exactly what the SDDM session entry ran) and exits.
+# (UWSM -> Hyprland, the "Hyprland (uwsm-managed)" session entry) and exits.
 #
 # Palette and wallpaper: the greeter cannot read the user's home, so
 # `greeter-sync` (desktop/greeter-sync.nix) publishes copies into sharedDir,

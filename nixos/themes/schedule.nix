@@ -2,11 +2,11 @@
 # ./default.nix so the schedule can change without touching colors and vice
 # versa. Each entry's theme runs from its `time` until the next entry's
 # `time`, wrapping around midnight (the last entry runs until the first
-# entry's time the next day). Consumed by desktop/home.nix to generate one
-# systemd.user timer+service pair per entry, and rendered to
-# waybar/scripts/schedule.list for theme-switch.sh's no-arg (clock-based)
-# lookup. Entries must stay in ascending time order - theme-switch.sh's
-# no-arg lookup depends on it.
+# entry's time the next day). desktop/home.nix generates one systemd user
+# timer+service pair per entry and writes the list to
+# ~/.config/desktop/schedule.json for theme-switch's no-arg (clock-based)
+# lookup. Entries must stay in ascending time order - that lookup depends
+# on it.
 [
   {
     time = "04:00";

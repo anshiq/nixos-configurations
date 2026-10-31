@@ -1,84 +1,31 @@
-# The Bar: Layout, Widgets, and Plugins
+# The Bar and Its Widgets
 
-Read this before changing the bar, widgets, or installing a third-party
-plugin.
+Read this before changing the bar or its widgets.
 
-Ported from Omarchy's `plugins.md`. The bar/launcher/lock-screen/
-notifications all run inside one long-running Quickshell process here too
-(`quickshell`, launched by `hyprland.lua`'s autostart) - that part matches
-Omarchy exactly. Everything about *how plugins are declared and installed*
-is different.
+The bar, launcher, lock screen, notifications, clipboard picker and power
+menu all run in one Quickshell process (the `quickshell` systemd user
+service). Its QML lives in `nixos/quickshell/`, deployed to
+`~/.config/quickshell` as a live symlink into the checkout, so edits apply on
+save without a rebuild.
 
-```
-nixos/quickshell/plugin-layout.json     # placement: which ids, which section
-nixos/quickshell/plugin-registry.json   # Nix-generated - every known plugin, don't hand-edit
-nixos/quickshell/plugins/<id>/           # plugin files, builtin or fetched
-nixos/plugins/default.nix                # Nix-declared third-party sources (reproducible)
-nixos/quickshell/scripts/plugin.sh       # the CLI for all of the above
-```
+Read `nixos/quickshell/` itself (its `shell.qml` and any README) for the
+current widget layout and how widgets are registered before changing them.
 
-There is no single `shell.json` - Omarchy's one file (layout + widget
-settings + idle config in one place) is split here into `plugin-layout.json`
-(placement only) and `plugin-registry.json` (existence, Nix-owned). Neither
-carries per-widget settings - see the gap list in `SKILL.md`.
+Widgets call the desktop commands by bare name (`theme-switch`, `bluelight`,
+`screen-record`, `idle-settings`, ...; see `SKILL.md`) and watch state files
+under `~/.local/state/desktop/` rather than polling.
 
-## Bar Layout
+## Debugging
 
 ```bash
-~/.config/quickshell/scripts/plugin.sh list                       # what's installed, where
-~/.config/quickshell/scripts/plugin.sh enable <id> [left|center|right]
-~/.config/quickshell/scripts/plugin.sh disable <id>
+journalctl --user -u quickshell -f     # logs
+systemctl --user restart quickshell
 ```
-
-No `omarchy bar move` - `enable` with a different section moves it (it
-drops the id from every section first, so re-enabling elsewhere is a move,
-not a duplicate).
-
-## Installing a Third-Party Plugin
-
-**Two ways - pick based on whether you want it reproducible:**
-
-```bash
-# Non-declarative - like Omarchy's `omarchy plugin add <url> --enable`.
-# Real git clone, permanent (survives rebuilds), but NOT reproducible from
-# this repo alone - another machine building this flake won't have it.
-~/.config/quickshell/scripts/plugin.sh add <git-url> [--enable]
-
-# Declarative - the Nix-native equivalent, no Omarchy analog. Add an entry
-# to nixos/plugins/default.nix (pkgs.fetchFromGitHub, pinned rev+hash),
-# then `nixos-rebuild switch`. Reproducible on any machine building this
-# flake; `nixos-rebuild switch` IS the install step.
-```
-
-Either way, if the plugin ships multiple `.qml` files expecting to
-reference each other as bare types (e.g. a widget that instantiates a
-sibling `Model.qml`), `plugin.sh add` auto-generates a `qmldir` for it -
-Quickshell's implicit same-directory type synthesis doesn't reliably work
-under its own `qs:` URL scheme for plugin folders, and a missing qmldir
-shows up as `"X is not a type"` in `quickshell log` with the widget simply
-never rendering. Check `quickshell log` after installing anything.
-
-## Customizing a Built-In Widget
-
-No `omarchy plugin clone` equivalent - built-in widgets under
-`quickshell/plugins/user.*/` are just edited directly in the git checkout.
-There's no "clone before edit" step because this is already your own
-tracked copy, not a packaged file that updates would overwrite.
-
-## Uninstalling
-
-```bash
-~/.config/quickshell/scripts/plugin.sh remove <id>   # manual/non-declarative plugins
-```
-For a declaratively-added plugin, delete its entry from
-`nixos/plugins/default.nix` and `nixos-rebuild switch` - the activation
-script's stale-cleanup removes the now-undeclared plugin directory
-automatically (it only ever touches directories it marked itself, never a
-hand-written `user.*` widget or a `plugin.sh add`-ed one).
 
 ## Idle and Lock
 
-No `shell.json` idle config - idle/lock timeouts are set from the running
-shell's own power-menu settings panel (see `quickshell/PowerMenu.qml`),
-persisted to `~/.local/state/quickshell/idle-settings.json` by
-`quickshell/scripts/idle-settings.sh`, not edited as a config file.
+Idle timeouts are edited from the shell's power settings (or
+`idle-settings set <lock> <dpms> <suspend>`), stored in
+`~/.local/state/desktop/idle.json`, and `idle-settings` regenerates
+`~/.config/hypr/hypridle.conf` from them. Screen-off and suspend only fire on
+battery.

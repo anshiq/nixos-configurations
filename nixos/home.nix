@@ -9,9 +9,7 @@
 let
   themes = import ./themes;
   themeGen = import ./themes/generators.nix { inherit lib; };
-  # Only used below to pick a non-stale static fallback theme (see
-  # settings.theme and the `zellij` fish function) - the real runtime
-  # switching still goes through theme-switch.sh, same as everywhere else.
+  # Static fallback for zellij (settings.theme and the `zellij` function).
   schedule = import ./themes/schedule.nix;
   fallbackTheme = (builtins.head schedule).theme;
 in
@@ -20,7 +18,6 @@ in
     ./desktop/home.nix
     ./desktop/settings-app.nix
     ./desktop/greeter-sync.nix
-    ./plugins/cli.nix
     ./ytermusic.nix
   ];
 
@@ -29,9 +26,9 @@ in
   home.username = "nixos";
   home.homeDirectory = "/home/nixos";
 
-  # Helix itself + the LSPs/formatters your languages.toml references
+  # LSPs/formatters helix/languages.toml references (helix itself comes from
+  # programs.helix below)
   home.packages = with pkgs; [
-    helix
     ngrok
 
     # LSPs
@@ -60,7 +57,6 @@ in
 
     # Used in your keybinds
     lazygit
-    yazi
     glow
 
     #git
@@ -122,15 +118,11 @@ in
     awscli2
 
     ueberzugpp
-
-    # The real `omarchy` CLI (theme/font/plugin/bluelight/capture/system/
-    # power) - see scripts/omarchy. Replaces the old fish-only
-    # `omarchy plugin`-only shim; it delegates to waybar/scripts/*.sh and
-    # quickshell/scripts/plugin.sh, which are deployed separately below via
-    # xdg.configFile, so this just needs to be on PATH.
-    (pkgs.writeShellScriptBin "omarchy" (builtins.readFile ./scripts/omarchy))
   ];
 
+  # Package only; config.toml/languages.toml are deployed verbatim below and
+  # the theme file is a symlink theme-switch flips (helix/themes/current.toml).
+  programs.helix.enable = true;
   xdg.configFile."helix/config.toml".source = ./helix/config.toml;
   xdg.configFile."helix/languages.toml".source = ./helix/languages.toml;
 
@@ -147,9 +139,7 @@ in
   #  - BUN_INSTALL / GOPATH -> home.sessionVariables
   #  - aliases             -> programs.fish.shellAliases
   #  - functions (mkcd, gfile, y, dev) -> programs.fish.functions
-  #  - zoxide integration  -> REMOVED. You asked to drop zoxide entirely
-  #    during this migration - it is no longer installed or referenced
-  #    anywhere in this config.
+  #  - zoxide integration  -> programs.zoxide in configuration.nix
   #  - fzf integration     -> programs.fzf.enableFishIntegration (below),
   #    which generates the exact same `fzf --fish | source` for you.
 
@@ -221,7 +211,6 @@ in
       reload = "source ~/.config/fish/config.fish";
       zjl = "zellij list-sessions";
       zja = "zellij attach";
-      theme-status = "$HOME/.config/waybar/scripts/theme-status.sh";
     };
 
     interactiveShellInit = ''
@@ -235,7 +224,6 @@ in
 
 
       set -gx VISUAL $EDITOR
-      set -gx TZDIR /etc/zoneinfo
     '';
 
     functions = {
@@ -391,12 +379,8 @@ in
       zellij = {
         description = "Wraps the real zellij to launch with the desktop's active theme";
         body = ''
-          # theme-switch.sh (../waybar/scripts/theme-switch.sh) writes the
-          # currently active theme name here on every switch - reading it
-          # back (instead of guessing from wall-clock hour, the old
-          # behaviour) means zellij always agrees with ghostty/kitty/the bar,
-          # even after a theme was picked manually rather than by schedule.
-          set -l theme_file "$HOME/.local/state/theme/current"
+          # Active theme name, written by theme-switch on every switch.
+          set -l theme_file "$HOME/.local/state/desktop/theme"
           set -l theme ${fallbackTheme}
           if test -r $theme_file
               set theme (cat $theme_file)
@@ -421,7 +405,7 @@ in
     };
   };
   ############################################################
-  ## fzf - fuzzy finder (kept; zoxide was dropped, fzf was not)
+  ## fzf - fuzzy finder
   ############################################################
   programs.fzf = {
     enable = true;
@@ -443,12 +427,6 @@ in
   ############################################################
   ## Zellij - terminal multiplexer
   ############################################################
-  # NOTE: `zellij` did not exist anywhere in your original NixOS config
-  # (not in configuration.nix systemPackages, not in home.nix) even
-  # though config.kdl, dev.kdl, and your fish `dev`/`zjl`/`zja` all
-  # depend on it. `programs.zellij.enable = true` below both installs
-  # the package AND wires it up - this closes that gap.
-  #
   # The keybinds block from config.kdl uses `clear-defaults=true` at
   # the top, which is verbatim KDL syntax rather than a structured
   # home-manager option, so it's passed through `extraConfig` unchanged
@@ -504,9 +482,8 @@ in
       # automatically, and now covers every theme (not just 2), so adding a
       # theme under ./themes/ needs no change here. zellij has no live
       # theme reload, so all themes still live in the same config.kdl; the
-      # `zellij` fish function below picks which one to launch with via
-      # `--theme`, reading the desktop's actual active theme (written by
-      # theme-switch.sh) instead of guessing from wall-clock time.
+      # `zellij` fish function above picks which one to launch with via
+      # `--theme`, reading the active theme written by theme-switch.
       themes = lib.mapAttrs (name: theme: themeGen.toZellijTheme theme) themes;
 
       web_client.font = "JetBrainsMono Nerd Font";
@@ -627,9 +604,8 @@ in
 
     settings = lib.importTOML ./yazi/yazi.toml;
     keymap = lib.importTOML ./yazi/keymap.toml;
-    # theme.toml is NOT set here: it is a runtime symlink flipped between
-    # per-theme variants (desktop/home.nix's themeGen.toYaziTheme) by
-    # theme-switch.sh, same pattern as ghostty/kitty - see ../desktop/home.nix.
+    # theme.toml is not set here: it is a symlink theme-switch flips between
+    # the per-theme variants generated in desktop/home.nix.
 
     plugins = {
       git = pkgs.yaziPlugins.git;

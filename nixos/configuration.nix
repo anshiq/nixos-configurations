@@ -22,12 +22,6 @@
   boot.loader.efi.canTouchEfiVariables = true;
   nixpkgs.config.allowUnfree = true;
 
-  # WSL settings are intentionally retained only as migration documentation.
-  # wsl.enable = true;
-  # wsl.defaultUser = "nixos";
-  # wsl.interop.register = true;
-  # wsl.wslConf.interop.enabled = true;
-
   networking.hostName = "nixos";
   networking.networkmanager.enable = true;
   # bluez daemon: backs the Bluetooth page of the settings app
@@ -36,20 +30,15 @@
   #services.blueman.enable = true;
   # Backs the power-profile picker on the settings app's Power page.
   services.power-profiles-daemon.enable = true;
+  # Battery/AC state over DBus for the bar and settings app (Quickshell UPower).
+  services.upower.enable = true;
 
   # Run selected unpatched precompiled binaries that are not built for NixOS.
   programs.nix-ld.enable = true;
 
+  # The nix-ld module already provides the core runtime (libstdc++, zlib, zstd,
+  # bzip2, xz, openssl, curl, libxml2, ...); only extras are listed here.
   programs.nix-ld.libraries = with pkgs; [
-    # core runtime
-    stdenv.cc.cc.lib
-    zlib
-    zstd
-    bzip2
-    xz
-    openssl
-    curl
-    libxml2
     icu
 
     cups
@@ -63,7 +52,6 @@
     gdk-pixbuf
     harfbuzz
     dig
-    openssl
 
     # python native extensions
     libffi
@@ -71,9 +59,6 @@
 
     # browser / GUI (glib already covers a lot, these round it out)
     glib
-    nss
-    nspr
-    dbus
     fontconfig
     freetype
     alsa-lib
@@ -101,14 +86,10 @@
 
     #gui zed
     wayland
-    libxkbcommon
     vulkan-loader
     libGL
-    fontconfig
-    freetype
 
     # Audio
-    alsa-lib
     libpulseaudio # needed by the Android emulator's qemu-system-x86_64
 
     # Android emulator (qemu-system-x86_64 + its bundled Qt UI) - found by
@@ -118,9 +99,6 @@
     libpng
     libjpeg
     SDL2
-    libGL
-    nss
-    nspr
     libxkbfile
     libSM
     libICE
@@ -189,33 +167,17 @@
   ## System Packages
   ############################
   #
-  # NOTE ON MIGRATION: `zellij`, `yazi`, `lazygit`, and `fzf` are
-  # intentionally NOT listed here. They are managed as Home Manager
-  # *programs* in home.nix instead (programs.zellij / programs.yazi /
-  # programs.fzf), which is the more "Nix-idiomatic" path: it installs
-  # the package AND wires up its dotfiles/shell-integration from the
-  # same declarative block, rather than splitting "package present"
-  # (here) from "package configured" (home.nix) across two files.
-  #
-  # `zoxide` was on your old Ubuntu box (referenced in config.fish) but
-  # you've asked to drop it entirely during this migration - it is not
-  # installed anywhere in this config anymore.
-  #
-  # Native GUI applications and Hyprland services live in desktop/system.nix
-  # and desktop/home.nix. Ghostty replaces Alacritty.
+  # Tools configured through a programs.* module (fish, starship, git, zoxide
+  # here; fzf, helix, zellij, yazi in home.nix) are not repeated in this list:
+  # the module installs the package. GUI applications and Hyprland services
+  # live in desktop/system.nix and desktop/home.nix.
 
   environment.systemPackages = with pkgs; [
-    # Shell
-    fish
-    starship
-
     # Editors
     neovim
     vim
-    helix
 
     # Git & SSH
-    git
     openssh
     gh
 
@@ -230,8 +192,6 @@
     bat
     fd
     ripgrep
-    fzf
-    zoxide
     jq
     tree
     unzip
@@ -248,7 +208,6 @@
 
     #keyboard
     xkeyboard-config
-    xclip
 
     # Docker (rootless daemon enabled above; compose plugin isn't pulled in
     # automatically by virtualisation.docker.rootless)
@@ -258,10 +217,14 @@
     gnome-boxes
 
     maven
-    zoxide
   ];
 
-  environment.sessionVariables.XKB_CONFIG_ROOT = "${pkgs.xkeyboard-config}/share/X11/xkb";
+  environment.sessionVariables = {
+    XKB_CONFIG_ROOT = "${pkgs.xkeyboard-config}/share/X11/xkb";
+    # Time zone database for programs that don't find it on their own (Qt's
+    # QTimeZone in Quickshell's clock among them).
+    TZDIR = "/etc/zoneinfo";
+  };
 
   ############################
   ## Git
@@ -269,7 +232,9 @@
 
   programs.git.enable = true;
 
-  ## ZOXIDE
+  ############################
+  ## Zoxide
+  ############################
 
   programs.zoxide.enable = true;
   programs.zoxide.enableBashIntegration = true;

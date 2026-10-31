@@ -18,20 +18,18 @@
   services.tumbler.enable = true;
   programs.xfconf.enable = true;
 
-  # The login screen is greetd + the Quickshell greeter, see desktop/greeter.nix
-  # (it replaced SDDM so the first screen after boot matches the lock screen).
+  # The login screen is greetd + the Quickshell greeter, see desktop/greeter.nix.
 
   security.polkit.enable = true;
+  # One keyring daemon for the whole session (SSH/GPG/app secrets), unlocked
+  # with the login password through greetd's PAM stack.
   services.gnome.gnome-keyring.enable = true;
+  security.pam.services.greetd.enableGnomeKeyring = true;
 
-  # home-manager's programs.hyprlock module does NOT register a PAM service
-  # on its own (its own docs say so) - without this, hyprlock authenticates
-  # against /etc/pam.d/other, which unconditionally denies (pam_deny.so), so
-  # no password would ever unlock it. This was missing before the Quickshell
-  # lock screen work below and is fixed here regardless of which lock screen
-  # is active. quickshell-lock is the PAM service Quickshell's LockScreen.qml
-  # (Quickshell.Services.Pam PamContext) authenticates against - see
-  # quickshell/LockScreen.qml.
+  # PAM services for the lock screens: without one, authentication falls back
+  # to /etc/pam.d/other, which always denies. quickshell-lock is what
+  # quickshell/LockScreen.qml authenticates against; hyprlock is the manual
+  # fallback locker.
   security.pam.services.hyprlock = { };
   security.pam.services.quickshell-lock = { };
 
@@ -68,10 +66,9 @@
     };
   };
 
-  # Reboot/shutdown was hanging on "A stop job is running for user manager
-  # for uid 1000" for the full systemd default (90s) before giving up and
-  # killing it. Caps that wait at 10s instead - the service is still killed
-  # (SIGTERM then SIGKILL) if it doesn't stop cleanly, just much sooner.
+  # Caps the wait on a hanging user manager at shutdown ("A stop job is
+  # running for user manager") at 7s instead of the 90s default; it is still
+  # SIGTERMed then SIGKILLed, just sooner.
   systemd.services."user@".serviceConfig.TimeoutStopSec = "7s";
 
   # Power button was powering off the machine (logind's default

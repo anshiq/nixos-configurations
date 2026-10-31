@@ -8,9 +8,7 @@
 local terminal = "ghostty"
 local browser  = "google-chrome-stable"
 local browser2 = "firefox"
--- Phase 4: the Quickshell launcher (quickshell/Launcher.qml) replaces wofi
--- for both the drun app grid and the cliphist dmenu picker below - see
--- /home/nixos/.claude/plans/stateless-wishing-willow.md.
+-- Quickshell launcher (quickshell/Launcher.qml)
 local menu     = "quickshell ipc call launcher openDrun"
 local mod      = "SUPER"
 
@@ -43,52 +41,20 @@ hl.env("HYPRCURSOR_THEME", "Bibata-Modern-Ice")
 ---- AUTOSTART ----
 ----------------
 
-hl.on("hyprland.start", function()
-  hl.exec_cmd("$HOME/.config/waybar/scripts/theme-switch.sh")
-  -- Reads from the state-dir path theme-switch.sh's render-wallpaper.sh
-  -- writes to (NOT ~/.config/wallpapers/wallpaper.png - that static image is
-  -- only the hyprlock/SDDM-greeter background, see desktop/home.nix and
-  -- desktop/system.nix), so the desktop background always matches whichever
-  -- theme is active rather than showing one fixed image. `exec_cmd` above
-  -- and this one both fire without waiting on each other, so this is a
-  -- small shell loop instead of a bare `swaybg -i ...`: it waits for that
-  -- first theme-switch.sh run to have actually written the file before
-  -- swaybg tries to read it, rather than assuming exec order.
-  hl.exec_cmd(
-    "bash -c 'w=$HOME/.local/state/wallpaper/wallpaper.png; " ..
-    "until [ -s \"$w\" ]; do sleep 0.05; done; exec swaybg -i \"$w\" -m fill'"
-  )
-  -- waybar/wofi retired - Quickshell (bar/launcher/power menu/notifications)
-  -- has full parity, see /home/nixos/.claude/plans/stateless-wishing-willow.md.
-  hl.exec_cmd("quickshell")
-  -- hl.exec_cmd("mako")
-  -- Kept only as NetworkManager's secret/polkit agent (saved networks whose
-  -- password isn't in the keyring still need something to prompt). Picking a
-  -- network is the topbar network widget's job now - it drives nmcli directly
-  -- and draws its own list, see quickshell/NetworkPanel.qml - and nm-applet's
-  -- own tray icon is hidden in plugins/user.tray/Tray.qml because of that.
-  hl.exec_cmd("nm-applet --indicator")
-  -- hl.exec_cmd("wl-paste --type text --watch cliphist store")
-  -- hl.exec_cmd("wl-paste --type image --watch cliphist store")
-end)
+-- Nothing is started from here: the shell, wallpaper, idle daemon, blue-light
+-- filter, clipboard history, polkit and NetworkManager agents and the login
+-- theme are systemd user services bound to the UWSM session (desktop/home.nix).
 
 -----------------
 ---- LOOK AND FEEL ----
 -----------------
 
--- Border colors come from ~/.config/hypr/colors.lua, a symlink
--- theme-switch.sh repoints at whichever theme's generated
--- colors-<name>.lua (see nixos/themes/generators.nix's toHyprColorsLua) is
--- currently active. Reading it here at config-parse time - rather than
--- only patching borders live via theme-switch.sh's `hyprctl eval` - means a
--- plain `hyprctl reload` (or a full Hyprland restart) always comes back on
--- the correct theme's colors instead of resetting to whatever was hardcoded
--- in this file.
+-- Border colors come from ~/.config/hypr/colors.lua, a symlink theme-switch
+-- points at the active theme's colors-<name>.lua (themes/generators.nix), so
+-- a `hyprctl reload` keeps the current theme's borders.
 local colorsOk, colors = pcall(dofile, os.getenv("HOME") .. "/.config/hypr/colors.lua")
 if not colorsOk then
-  -- First run before theme-switch.sh has ever created the symlink (or the
-  -- symlink is broken) - fall back to mono's values so the config still
-  -- parses.
+  -- No theme applied yet (or a broken symlink): fall back to mono's values.
   colors = {
     active = { colors = { "rgba(aaaaaaee)", "rgba(888888ee)" }, angle = 45 },
     inactive = "rgba(333333aa)",
@@ -222,38 +188,32 @@ hl.bind(mod .. " + S", hl.dsp.workspace.toggle_special("scratchpad"))
 hl.bind(mod .. " + ALT + S", hl.dsp.window.move({ workspace = "special:scratchpad", follow = false }))
 
 -- Lock / screenshots / recording / clipboard
--- Phase 7: Quickshell's LockScreen.qml is the active lock (IPC-triggered) -
--- see quickshell/LockScreen.qml. Manual fallback: `pidof hyprlock || hyprlock`.
+-- Quickshell's LockScreen.qml is the lock screen; `hyprlock` is the manual fallback.
 hl.bind(mod .. " + CTRL + L", hl.dsp.exec_cmd("quickshell ipc call lockscreen lock"))
 -- Power button locks instead of powering off - logind's HandlePowerKey is
 -- set to "ignore" (desktop/system.nix) so this bind is what actually fires.
 hl.bind("XF86PowerOff", hl.dsp.exec_cmd("quickshell ipc call lockscreen lock"), { locked = true })
--- flameshot's capture window supports dragging the screenshot thumbnail
--- straight into another app (macOS-style), plus copy/save/annotate from the
--- same window - see waybar/scripts/screenshot.sh (also on the topbar icon).
-hl.bind("PRINT", hl.dsp.exec_cmd("$HOME/.config/waybar/scripts/screenshot.sh"))
+-- flameshot region capture (copy, save, annotate, or drag the result out)
+hl.bind("PRINT", hl.dsp.exec_cmd("screenshot"))
 hl.bind(mod .. " + PRINT", hl.dsp.exec_cmd("hyprpicker -a"))
-hl.bind(mod .. " + SHIFT + PRINT", hl.dsp.exec_cmd("obs --minimize-to-tray"))
-hl.bind(mod .. " + V", hl.dsp.exec_cmd("cliphist list | $HOME/.config/quickshell/scripts/dmenu.sh | cliphist decode | wl-copy"))
--- Manual day/night theme override - theme-switch.sh with no arg follows
--- ~/.config/waybar/scripts/schedule.list (see nixos/themes/schedule.nix)
--- for the systemd timer/login path, so it needs an explicit "toggle" arg
--- here to actually flip outside that schedule. `theme-switch.sh <name>` or
--- `theme-switch.sh next` also work from a terminal for picking a specific
--- theme or cycling through all of them.
-hl.bind(mod .. " + SHIFT + T", hl.dsp.exec_cmd("$HOME/.config/waybar/scripts/theme-switch.sh toggle"))
+-- Start/stop a full-screen recording into ~/Videos/Recordings
+hl.bind(mod .. " + SHIFT + PRINT", hl.dsp.exec_cmd("screen-record toggle"))
+hl.bind(mod .. " + V", hl.dsp.exec_cmd("quickshell ipc call clipboard toggle"))
+-- Flip between day and night themes (the schedule switches automatically;
+-- `theme-switch <name>|next` from a terminal picks a specific one)
+hl.bind(mod .. " + SHIFT + T", hl.dsp.exec_cmd("theme-switch toggle"))
 
 -- Media / volume keys
-hl.bind("XF86AudioMute", hl.dsp.exec_cmd("pamixer --toggle-mute"), { locked = true })
-hl.bind("XF86AudioMicMute", hl.dsp.exec_cmd("pamixer --default-source --toggle-mute"), { locked = true })
+hl.bind("XF86AudioMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"), { locked = true })
+hl.bind("XF86AudioMicMute", hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"), { locked = true })
 hl.bind("XF86AudioPlay", hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
 hl.bind("XF86AudioPause", hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
 hl.bind("XF86AudioNext", hl.dsp.exec_cmd("playerctl next"), { locked = true })
 hl.bind("XF86AudioPrev", hl.dsp.exec_cmd("playerctl previous"), { locked = true })
 
 -- Repeating binds (volume / brightness)
-hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("pamixer --increase 5"), { locked = true, repeating = true })
-hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("pamixer --decrease 5"), { locked = true, repeating = true })
+hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true })
+hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"), { locked = true, repeating = true })
 hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd("brightnessctl set +5%"), { locked = true, repeating = true })
 hl.bind("XF86MonBrightnessDown", hl.dsp.exec_cmd("brightnessctl set 5%-"), { locked = true, repeating = true })
 

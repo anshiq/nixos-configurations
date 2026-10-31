@@ -1,7 +1,7 @@
 # Every available theme, keyed by name. Adding a theme = add one file here
 # (copy an existing one and adjust the fields) plus a line below - nothing
 # else in this repo needs to change; desktop/home.nix generates a full file
-# set (ghostty, kitty, hyprlock, Hyprland border colors, Quickshell/zellij
+# set (ghostty, kitty, Hyprland border colors, Quickshell/zellij
 # palettes) for every entry in this attrset.
 #
 # Kept to exactly 4 themes on purpose, one per ../themes/schedule.nix

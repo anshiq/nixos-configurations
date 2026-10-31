@@ -36,27 +36,10 @@
         "type": "github"
       }
     },
-    "omarchy-binaries": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1790834631,
-        "narHash": "sha256-czjddV6SJgqdLnDPNM/IXn7qBgwSTRD/oXiaAOKwMdI=",
-        "owner": "anshiq",
-        "repo": "omarchy-binaries-for-nixos",
-        "rev": "5c97ed267969deecd1947adc25c5ec4b004f8211",
-        "type": "github"
-      },
-      "original": {
-        "owner": "anshiq",
-        "repo": "omarchy-binaries-for-nixos",
-        "type": "github"
-      }
-    },
     "root": {
       "inputs": {
         "home-manager": "home-manager",
-        "nixpkgs": "nixpkgs",
-        "omarchy-binaries": "omarchy-binaries"
+        "nixpkgs": "nixpkgs"
       }
     }
   },

@@ -54,10 +54,8 @@ in
     cursor-color = ${hex t.cursor}
     cursor-style = block
     cursor-style-blink = false
-    # "monospace" (not a literal family name) so `omarchy font set` - which
-    # writes a fontconfig alias for the generic family, see nixos/scripts/omarchy
-    # - can repoint every app at once without a rebuild. Restart ghostty
-    # (SIGUSR2, already sent by theme-switch.sh) to pick up a changed alias.
+    # The generic "monospace" family (fonts.fontconfig.defaultFonts in
+    # desktop/system.nix) rather than a literal family name.
     font-family = monospace
     font-size = 10
     font-style = Regular
@@ -98,7 +96,7 @@ in
 
   # Matches quickshell/Colors.qml's applyTheme() field set exactly, plus the
   # three border fields it silently ignores (extra JSON keys are harmless) -
-  # theme-switch.sh reads those back out for its `hyprctl eval` border
+  # theme-switch reads those back out for its `hyprctl eval` border
   # update instead of hardcoding them a second time.
   toQuickshellTheme = t: {
     mode = t.kind;
@@ -120,10 +118,10 @@ in
     borderInactive = hex t.borderInactive;
   };
 
-  # Lua module theme-switch.sh symlinks to hypr/colors.lua; hyprland.lua
+  # Lua module theme-switch symlinks to hypr/colors.lua; hyprland.lua
   # `dofile`s whatever that currently points at (see hypr/hyprland.lua) so
   # the static border config always matches the active theme, even across a
-  # plain `hyprctl reload` that never runs theme-switch.sh.
+  # plain `hyprctl reload` that never runs theme-switch.
   toHyprColorsLua = t: ''
     return {
       active = { colors = { "${rgba t.borderActive1 "ee"}", "${rgba t.borderActive2 "ee"}" }, angle = 45 },
@@ -146,8 +144,8 @@ in
   };
 
   # Full Helix `theme.toml`, staged per-theme at helix/themes/<name>.toml.
-  # helix/config.toml itself always says `theme = "omarchy"`; theme-switch.sh
-  # symlinks helix/themes/omarchy.toml at whichever variant is active and
+  # helix/config.toml itself always says `theme = "current"`; theme-switch
+  # symlinks helix/themes/current.toml at whichever variant is active and
   # sends Helix SIGUSR1, which reloads config (and thus re-resolves the
   # theme file) without a restart.
   toHelixTheme = t: ''
@@ -216,7 +214,7 @@ in
   '';
 
   # yazi's theme.toml, staged per-theme at yazi/theme-<name>.toml.
-  # theme-switch.sh symlinks yazi/theme.toml at whichever variant is
+  # theme-switch symlinks yazi/theme.toml at whichever variant is
   # active (yazi has no reload signal, so this takes effect on next launch).
   toYaziTheme = t: ''
     [manager]
@@ -287,7 +285,7 @@ in
   '';
 
   # lazygit's `gui.theme` block, staged per-theme at lazygit/config-<name>.yml.
-  # theme-switch.sh symlinks lazygit/config.yml at whichever variant is
+  # theme-switch symlinks lazygit/config.yml at whichever variant is
   # active (lazygit has no reload signal, but it's a short-lived subprocess
   # launched fresh each time, so this is a non-issue in practice).
   toLazygitTheme = t: ''
