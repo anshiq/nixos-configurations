@@ -63,6 +63,15 @@ in
     keybind = shift+insert=paste_from_clipboard
     keybind = control+insert=copy_to_clipboard
     keybind = shift+enter=csi:13;2u
+    # Ctrl+Z / Ctrl+Shift+Z are undo / redo, not "suspend": a bare Ctrl+Z is
+    # SIGTSTP for whatever program is running (Claude Code, Helix, ...), and
+    # without the kitty keyboard protocol Ctrl+Shift+Z is the same byte. Send
+    # Ctrl+_ (undo in fish and most line editors) and the kitty-protocol
+    # Ctrl+Shift+Z (fish's redo) instead; Ctrl+Alt+Z is the real Ctrl+Z, to
+    # suspend the foreground program.
+    keybind = ctrl+z=text:\x1f
+    keybind = ctrl+shift+z=csi:122;6u
+    keybind = ctrl+alt+z=text:\x1a
     mouse-scroll-multiplier = 0.950000
     ${lib.concatStringsSep "\n" (paletteLines t)}
     resize-overlay = never
