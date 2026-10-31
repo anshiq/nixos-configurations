@@ -55,7 +55,20 @@ in
 
     # Used in your keybinds
     lazygit
-    glow
+    # glow's default `-s auto` style switches to plain "notty" output when
+    # stdout isn't a terminal (pipes, tool shells, some launchers), which
+    # prints raw markdown (`# Heading`, `**bold**`) instead of rendering it.
+    # Only an explicit -s flag overrides that (the config file and env don't),
+    # so wrap glow to default to the dark style (every theme here is dark).
+    # Flags are added first, so a user-supplied `-s light` still wins.
+    (symlinkJoin {
+      name = "glow";
+      paths = [ glow ];
+      nativeBuildInputs = [ makeWrapper ];
+      postBuild = ''
+        wrapProgram $out/bin/glow --add-flags "-s dark"
+      '';
+    })
 
     #git
     git-filter-repo
