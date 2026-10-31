@@ -139,6 +139,18 @@ in
   xdg.configFile."helix/config.toml".source = ./helix/config.toml;
   xdg.configFile."helix/languages.toml".source = ./helix/languages.toml;
 
+  # glow: `pager: true` opens long documents in its scrollable viewer at the
+  # top (with false it dumps everything and the start scrolls away). Piped
+  # output is still printed directly. The style is set by the glow wrapper
+  # above (-s dark), as the config key is ignored when stdout isn't a TTY.
+  xdg.configFile."glow/glow.yml".text = ''
+    style: "dark"
+    mouse: false
+    pager: true
+    width: 80
+    all: false
+  '';
+
   xdg.configFile."opencode/AGENTS.md".source =
     config.lib.file.mkOutOfStoreSymlink /etc/nixos/.claude/CLAUDE.md;
   home.file.".claude/CLAUDE.md".source =
