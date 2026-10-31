@@ -15,9 +15,7 @@ let
 in
 {
   imports = [
-    ./desktop/home.nix
-    ./desktop/settings-app.nix
-    ./desktop/greeter-sync.nix
+    ./cli/home.nix
     ./ytermusic.nix
   ];
 
@@ -77,15 +75,11 @@ in
 
     # Android (FlorisBoard needs compileSdk 36 / NDK 29.0.14206865 - see
     # ~/myprojects/mykeyboard/gradle.properties and gradle/tools.versions.toml).
-    # Android Studio manages its own SDK/NDK/emulator images under
-    # ~/Android/Sdk (its default location, first-run SDK Manager wizard) -
-    # that dir is writable, unlike a nix-store-provided SDK would be, so
-    # Studio can add/update components itself. ANDROID_HOME/PATH below just
-    # point the shell at that same directory so adb/sdkmanager/etc. work from
-    # the CLI too. Prebuilt SDK binaries (adb, aapt2, emulator, NDK
-    # toolchain) are unpatched non-Nix ELF binaries; programs.nix-ld
-    # (configuration.nix) is what lets them actually run on NixOS.
-    android-studio
+    # Android Studio (GUI) is only on the desktop branch. ANDROID_HOME/PATH
+    # below point the shell at ~/Android/Sdk, a writable dir; install the
+    # command-line SDK there by hand if needed. Prebuilt SDK binaries (adb,
+    # aapt2, NDK toolchain) are unpatched non-Nix ELF binaries;
+    # programs.nix-ld (configuration.nix) is what lets them run on NixOS.
 
     # Node.js
     nodejs_22 # pin a version instead of floating `nodejs`

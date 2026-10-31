@@ -10,8 +10,6 @@
     # This file must come from the native NixOS installer for the target machine.
     # Generate it with `nixos-generate-config` before the first native rebuild.
     ./hardware-configuration.nix
-    ./desktop/system.nix
-    ./desktop/greeter.nix
   ];
 
   ############################
@@ -23,15 +21,10 @@
   nixpkgs.config.allowUnfree = true;
 
   networking.hostName = "nixos";
-  networking.networkmanager.enable = true;
-  # bluez daemon: backs the Bluetooth page of the settings app
-  # (desktop/settings-app/), which replaces blueman as the pairing UI.
-  hardware.bluetooth.enable = true;
-  #services.blueman.enable = true;
-  # Backs the power-profile picker on the settings app's Power page.
-  services.power-profiles-daemon.enable = true;
-  # Battery/AC state over DBus for the bar and settings app (Quickshell UPower).
-  services.upower.enable = true;
+  networking.networkmanager.enable = true; # nmcli / nmtui
+
+  # Caps the wait on a hanging user manager at shutdown at 7s (default 90s).
+  systemd.services."user@".serviceConfig.TimeoutStopSec = "7s";
 
   # Run selected unpatched precompiled binaries that are not built for NixOS.
   programs.nix-ld.enable = true;
@@ -154,14 +147,9 @@
   };
 
   ############################
-  ## QEMU/KVM Virtualization (rootless, GNOME Boxes)
+  ## QEMU/KVM Virtualization (libvirt, driven with virsh)
   ############################
-  # GNOME Boxes talks to libvirt over qemu:///session by default, which spawns
-  # a per-user virtqemud/qemu process instead of using the system-wide
-  # qemu:///system daemon, so VMs run as your own user rather than root.
   virtualisation.libvirtd.enable = true;
-  virtualisation.spiceUSBRedirection.enable = true;
-  programs.dconf.enable = true; # GNOME apps (incl. Boxes) need dconf for settings
 
   ############################
   ## System Packages
@@ -169,8 +157,8 @@
   #
   # Tools configured through a programs.* module (fish, starship, git, zoxide
   # here; fzf, helix, zellij, yazi in home.nix) are not repeated in this list:
-  # the module installs the package. GUI applications and Hyprland services
-  # live in desktop/system.nix and desktop/home.nix.
+  # the module installs the package. This is the headless branch: GUI
+  # applications and the Hyprland/Quickshell desktop live on the desktop branch.
 
   environment.systemPackages = with pkgs; [
     # Editors
@@ -206,23 +194,30 @@
     file
     gnupg
 
-    #keyboard
-    xkeyboard-config
-
     # Docker (rootless daemon enabled above; compose plugin isn't pulled in
     # automatically by virtualisation.docker.rootless)
     docker-compose
 
-    # QEMU/KVM GUI (rootless session libvirtd enabled above)
-    gnome-boxes
-
     maven
+
+    # Networking tools (curl, wget, lsof, openssh are above)
+    net-tools # ifconfig, netstat, route, arp
+    iproute2
+    iputils
+    ethtool
+    bind # dig, nslookup, host (dnsutils is an alias of this)
+    netcat
+    socat
+    nmap
+    tcpdump
+    wireshark-cli
+    httpie
+    traceroute
+    iperf3
   ];
 
   environment.sessionVariables = {
-    XKB_CONFIG_ROOT = "${pkgs.xkeyboard-config}/share/X11/xkb";
-    # Time zone database for programs that don't find it on their own (Qt's
-    # QTimeZone in Quickshell's clock among them).
+    # Time zone database for programs that don't find it on their own.
     TZDIR = "/etc/zoneinfo";
   };
 
