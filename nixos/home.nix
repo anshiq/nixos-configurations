@@ -13,7 +13,7 @@ let
   schedule = import ./themes/schedule.nix;
   fallbackTheme = (builtins.head schedule).theme;
 
-  # ---- Zellij: keybinding help popup (F1) and the hint in the bar ----
+  # ---- Zellij: keybinding help (Alt / tooltip, Alt k cheatsheet) and bar hint ----
   # The keybinds in programs.zellij below replace all of zellij's defaults,
   # so this cheatsheet is the only list of them. Keep it in step with them.
   zellijHelp = pkgs.writeText "zellij-keys.txt" ''
@@ -22,11 +22,11 @@ let
 
     Mouse
       Click a tab in the bar           switch to it
-      Click "F1 key help" in the bar   open this help
       Click / drag / scroll in panes   focus, select (copies), scroll
 
     Anywhere
-      F1                  this help
+      Alt /               tooltip: keys of this mode (see bar)
+      Alt k               this full help (keys)
 
     Normal mode
       Alt t               new tab
@@ -53,36 +53,14 @@ let
       d detach   w session manager   c configuration
   '';
 
-  # The one-line hint pane at the right of the bar. It shows "F1 key help".
-  # Clicking it makes zellij focus the pane, which the terminal reports as a
-  # focus-in event (ESC [ I); that sends focus back to the previous pane and
-  # opens the help.
-  zellijHint = pkgs.writeShellScript "zellij-hint" ''
-    zellij=${config.programs.zellij.package}/bin/zellij
-    # No echo: the terminal's focus reports would otherwise be printed here.
-    stty -echo
-    draw() { printf '\r\033[K \033[1mF1\033[0m key help'; }
-    printf '\033[?25l\033[?1004h'
-    draw
-    while IFS= read -rsn1 c; do
-      [ "$c" = $'\033' ] || continue
-      IFS= read -rsn2 -t 0.1 seq || continue
-      if [ "$seq" = '[I' ]; then
-        "$zellij" action focus-previous-pane
-        "$zellij" run --floating --close-on-exit --name Keybindings \
-          --x 5% --y 5% --width 90% --height 90% -- \
-          ${pkgs.less}/bin/less -R ${zellijHelp} >/dev/null 2>&1
-      fi
-      draw
-    done
-    exec sleep infinity
-  '';
-
-  # compact-bar (tabs + mode) with the hint pane to its right.
+  # One-row bar: zellij's compact-bar with its built-in "Alt / Tooltip" hint at
+  # the right. The tooltip key must also be bound (see keybinds below); it
+  # pops up the keys available in the current mode.
   zellijBar = ''
-    pane size=1 split_direction="vertical" {
-        pane borderless=true { plugin location="zellij:compact-bar"; }
-        pane size=14 borderless=true { command "${zellijHint}"; }
+    pane size=1 borderless=true {
+        plugin location="zellij:compact-bar" {
+            tooltip "Alt /"
+        }
     }
   '';
 in
@@ -584,7 +562,8 @@ in
               bind "Alt ." { GoToNextTab; }
           }
           shared {
-              bind "F1" { Run "${pkgs.less}/bin/less" "-R" "${zellijHelp}" { floating true; close_on_exit true; name "Keybindings"; x "5%"; y "5%"; width "90%"; height "90%"; }; }
+              bind "Alt /" { MessagePlugin "compact-bar" { name "toggle_tooltip"; }; }
+              bind "Alt k" { Run "${pkgs.less}/bin/less" "-R" "${zellijHelp}" { floating true; close_on_exit true; name "Keybindings"; x "5%"; y "5%"; width "90%"; height "90%"; }; }
           }
           locked {
               bind "Ctrl g" { SwitchToMode "normal"; }
@@ -643,7 +622,7 @@ in
     # home-manager writes this to $XDG_CONFIG_HOME/zellij/layouts/dev.kdl
     layouts = {
       # Default layout (default_layout above): zellij's compact layout plus
-      # the F1 hint in the bar.
+      # the "Alt / Tooltip" hint in the bar.
       main = ''
         layout {
             default_tab_template {
