@@ -1,8 +1,0 @@
-{
-  "id": "user.cpu",
-  "name": "CPU",
-  "kind": "bar-widget",
-  "entryPoint": "Cpu.qml",
-  "section": "right",
-  "tooltip": "CPU usage"
-}

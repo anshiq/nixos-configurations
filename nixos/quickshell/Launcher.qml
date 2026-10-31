@@ -1,190 +1,120 @@
-// Phase 4: replaces wofi for the two use sites in hyprland.lua - drun app
-// launcher (SUPER+SPACE) and the cliphist dmenu picker (SUPER+V). Quickshell
-// is a single long-lived process, so external triggers go through its IPC
-// mechanism (`quickshell ipc call launcher <function> ...`) rather than
-// spawning a new process per invocation like wofi did. Dmenu mode's
-// stdin/stdout contract (`cliphist list | wofi --dmenu | cliphist decode`)
-// can't be replicated directly over IPC (arguments only, no stdin/stdout
-// passthrough to a running process), so scripts/dmenu.sh bridges it: it
-// writes stdin to a temp file, calls openDmenu with the temp paths, and
-// polls for a completion marker this window writes after the user picks
-// (or cancels).
+// Application launcher over the desktop entries Quickshell indexes.
+// Keys: type to filter, Up/Down, Enter launches, Esc closes.
 pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Controls
 import Quickshell
-import Quickshell.Io
-import Quickshell.Wayland
+import qs
+import qs.components
 
-PanelWindow {
+Overlay {
     id: root
-    visible: false
-    color: "transparent"
-    anchors {
-        top: true
-        bottom: true
-        left: true
-        right: true
-    }
-    exclusiveZone: 0
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: root.visible ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-    WlrLayershell.namespace: "quickshell-launcher"
 
-    property string mode: "drun" // "drun" | "dmenu"
-    property string dmenuOutputPath: ""
-    property var dmenuOptions: []
-    property var filteredEntries: []
+    name: "launcher"
+    cardWidth: 560
+    cardHeight: 420
+    visible: Session.overlay === "launcher"
+
+    property var filtered: []
 
     function updateFilter() {
-        const q = searchField.text.toLowerCase();
-        if (root.mode === "drun") {
-            const apps = [];
-            const values = DesktopEntries.applications.values;
-            for (let i = 0; i < values.length; i++) {
-                const e = values[i];
-                if (!e.noDisplay && e.name.toLowerCase().includes(q)) apps.push(e);
-            }
-            root.filteredEntries = apps;
+        const q = search.text.toLowerCase();
+        const apps = DesktopEntries.applications.values.filter(e => !e.noDisplay && (q === "" || e.name.toLowerCase().includes(q) || (e.genericName || "").toLowerCase().includes(q)));
+        // Prefix matches first, then alphabetical.
+        apps.sort((a, b) => {
+            const pa = a.name.toLowerCase().startsWith(q) ? 0 : 1;
+            const pb = b.name.toLowerCase().startsWith(q) ? 0 : 1;
+            return pa - pb || a.name.localeCompare(b.name);
+        });
+        root.filtered = apps;
+        list.currentIndex = apps.length > 0 ? 0 : -1;
+    }
+
+    function launch(index) {
+        const entry = root.filtered[index];
+        if (!entry)
+            return;
+        entry.execute();
+        Session.close("launcher");
+    }
+
+    onVisibleChanged: {
+        search.text = "";
+        if (visible) {
+            root.updateFilter();
+            search.input.forceActiveFocus();
         } else {
-            root.filteredEntries = root.dmenuOptions.filter(o => o.toLowerCase().includes(q));
-        }
-        list.currentIndex = root.filteredEntries.length > 0 ? 0 : -1;
-    }
-    onDmenuOptionsChanged: updateFilter()
-
-    function openDrun() {
-        root.mode = "drun";
-        searchField.text = "";
-        updateFilter();
-        root.visible = true;
-    }
-
-    function openDmenu(inputPath, outputPath) {
-        root.mode = "dmenu";
-        root.dmenuOutputPath = outputPath;
-        searchField.text = "";
-        dmenuReader.path = inputPath;
-        dmenuReader.reload();
-        root.visible = true;
-    }
-
-    function closeLauncher() {
-        root.visible = false;
-    }
-
-    function activate(index) {
-        if (index < 0 || index >= root.filteredEntries.length) return;
-        if (root.mode === "drun") {
-            root.filteredEntries[index].execute();
-            root.closeLauncher();
-        } else {
-            writeDmenuResult(root.filteredEntries[index]);
+            root.filtered = [];
         }
     }
 
-    function cancelDmenu() {
-        if (root.mode === "dmenu") writeDmenuResult("");
-        else root.closeLauncher();
-    }
+    onDismissed: Session.close("launcher")
 
-    function writeDmenuResult(value) {
-        dmenuWriter.path = root.dmenuOutputPath;
-        dmenuWriter.setText(value);
-        root.closeLauncher();
-    }
-
-    FileView {
-        id: dmenuReader
-        onLoaded: root.dmenuOptions = text().split("\n").filter(l => l.length > 0)
-    }
-
-    FileView {
-        id: dmenuWriter
-        onSaved: doneMarkerProc.running = true
-    }
-
-    Process {
-        id: doneMarkerProc
-        command: ["touch", `${root.dmenuOutputPath}.done`]
-    }
-
-    IpcHandler {
-        target: "launcher"
-        function openDrun(): void {
-            root.openDrun();
-        }
-        function openDmenu(inputPath: string, outputPath: string): void {
-            root.openDmenu(inputPath, outputPath);
+    // The desktop entry index loads asynchronously and can change later.
+    Connections {
+        target: DesktopEntries.applications
+        function onValuesChanged() {
+            if (root.visible)
+                root.updateFilter();
         }
     }
 
-    MouseArea {
+    Item {
         anchors.fill: parent
-        onClicked: root.cancelDmenu()
-    }
+        anchors.margins: 12
 
-    Rectangle {
-        anchors.centerIn: parent
-        width: 560
-        height: 420
-        radius: 6
-        color: Colors.background
-        border.color: Colors.muted
-        border.width: 1
+        SearchField {
+            id: search
+            width: parent.width
+            placeholder: "Search applications"
+            onTextChanged: if (root.visible)
+                root.updateFilter()
 
-        MouseArea {
-            // Swallows clicks so they don't fall through to the backdrop
-            // MouseArea above and close the launcher.
-            anchors.fill: parent
+            onKeyPressed: event => {
+                if (event.key === Qt.Key_Escape)
+                    Session.close("launcher");
+                else if (event.key === Qt.Key_Down)
+                    list.incrementCurrentIndex();
+                else if (event.key === Qt.Key_Up)
+                    list.decrementCurrentIndex();
+                else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
+                    root.launch(list.currentIndex);
+                else
+                    return;
+                event.accepted = true;
+            }
         }
 
-        Column {
-            anchors.fill: parent
-            anchors.margins: 12
-            spacing: 8
+        ListView {
+            id: list
+            anchors.top: search.bottom
+            anchors.topMargin: 8
+            anchors.bottom: parent.bottom
+            width: parent.width
+            clip: true
+            spacing: 2
+            model: root.filtered
+            boundsBehavior: Flickable.StopAtBounds
+            highlightMoveDuration: 0
 
-            TextField {
-                id: searchField
-                width: parent.width
-                placeholderText: "Search"
-                focus: true
-                color: Colors.foreground
-                onTextChanged: root.updateFilter()
-                Keys.onEscapePressed: root.cancelDmenu()
-                Keys.onReturnPressed: root.activate(list.currentIndex)
-                Keys.onDownPressed: list.incrementCurrentIndex()
-                Keys.onUpPressed: list.decrementCurrentIndex()
+            delegate: ListRow {
+                required property var modelData
+                required property int index
+                width: ListView.view.width
+                text: modelData.name
+                hint: modelData.genericName || ""
+                current: index === ListView.view.currentIndex
+                onActivated: root.launch(index)
+                onHoveredRow: list.currentIndex = index
             }
+        }
 
-            ListView {
-                id: list
-                width: parent.width
-                height: parent.height - searchField.height - 8
-                clip: true
-                model: root.filteredEntries.length
-                currentIndex: 0
-                delegate: Rectangle {
-                    id: delegateRoot
-                    required property int index
-                    width: ListView.view.width
-                    height: 32
-                    color: delegateRoot.index === ListView.view.currentIndex ? Colors.selection : "transparent"
-
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        anchors.leftMargin: 8
-                        color: delegateRoot.index === ListView.view.currentIndex ? Colors.selectionForeground : Colors.foreground
-                        text: root.mode === "drun" ? root.filteredEntries[delegateRoot.index].name : root.filteredEntries[delegateRoot.index]
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: root.activate(delegateRoot.index)
-                    }
-                }
-            }
+        Text {
+            anchors.centerIn: list
+            visible: root.filtered.length === 0
+            text: "No matches"
+            color: Qt.alpha(Colors.foreground, 0.5)
+            font.family: Colors.font
+            font.pixelSize: 13
         }
     }
 }

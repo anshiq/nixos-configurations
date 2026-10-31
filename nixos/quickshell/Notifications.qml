@@ -1,19 +1,17 @@
-// Phase 6: replaces mako. Declaring NotificationServer below is what claims
-// the org.freedesktop.Notifications DBus name - no separate daemon/systemd
-// unit needed (services.mako.enable removed from desktop/home.nix). Visual
-// intent matches the old mako/config-{day,night}: square corners, 360px
-// wide, 2px border, 5s auto-dismiss - colors come from the same
-// Colors singleton/theme.json Phase 3 wired up, plus an `accent` field on
-// every theme (see nixos/themes/) to match mako's border-color exactly
-// (it didn't line up with any existing palette entry).
+// Notification daemon: owns org.freedesktop.Notifications and shows popups
+// top-right. Click dismisses; each popup expires after its timeout (5 s
+// default).
 pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Services.Notifications
+import qs
 
 PanelWindow {
     id: root
+
+    visible: popups.count > 0
     color: "transparent"
     anchors {
         top: true
@@ -22,46 +20,54 @@ PanelWindow {
     margins.top: 10
     margins.right: 10
     implicitWidth: 360
-    implicitHeight: column.implicitHeight
+    implicitHeight: Math.max(1, column.implicitHeight)
     exclusiveZone: 0
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "quickshell-notifications"
 
-    property var notifObjects: ({})
+    // Live notification objects by id; the model holds plain copies.
+    property var live: ({})
 
-    function removeById(id) {
-        for (let i = 0; i < listModel.count; i++) {
-            if (listModel.get(i).notifId === id) {
-                listModel.remove(i);
+    function remove(id) {
+        for (let i = 0; i < popups.count; i++) {
+            if (popups.get(i).notifId === id) {
+                popups.remove(i);
                 break;
             }
         }
-        delete root.notifObjects[id];
+        delete root.live[id];
+    }
+
+    function dismiss(id) {
+        const n = root.live[id];
+        if (n)
+            n.dismiss();
+        else
+            root.remove(id);
     }
 
     NotificationServer {
-        id: server
         bodySupported: true
         bodyMarkupSupported: true
         imageSupported: true
         actionsSupported: false
-        onNotification: notif => {
-            notif.tracked = true;
-            root.notifObjects[notif.id] = notif;
-            listModel.append({
-                notifId: notif.id,
-                appName: notif.appName,
-                summary: notif.summary,
-                body: notif.body,
-                image: notif.image,
-                timeoutMs: notif.expireTimeout > 0 ? notif.expireTimeout : 5000
+        onNotification: n => {
+            n.tracked = true;
+            root.live[n.id] = n;
+            popups.append({
+                notifId: n.id,
+                appName: n.appName,
+                summary: n.summary,
+                body: n.body,
+                image: n.image,
+                timeoutMs: n.expireTimeout > 0 ? n.expireTimeout : 5000
             });
-            notif.closed.connect(() => root.removeById(notif.id));
+            n.closed.connect(() => root.remove(n.id));
         }
     }
 
     ListModel {
-        id: listModel
+        id: popups
     }
 
     Column {
@@ -70,8 +76,9 @@ PanelWindow {
         spacing: 8
 
         Repeater {
-            model: listModel
-            delegate: Rectangle {
+            model: popups
+
+            Rectangle {
                 id: card
                 required property int notifId
                 required property string appName
@@ -82,7 +89,6 @@ PanelWindow {
 
                 width: column.width
                 implicitHeight: inner.implicitHeight + 24
-                radius: 0
                 color: Colors.background
                 border.width: 2
                 border.color: Colors.accent
@@ -90,24 +96,12 @@ PanelWindow {
                 Timer {
                     interval: card.timeoutMs
                     running: true
-                    onTriggered: {
-                        const obj = root.notifObjects[card.notifId];
-                        if (obj)
-                            obj.dismiss();
-                        else
-                            root.removeById(card.notifId);
-                    }
+                    onTriggered: root.dismiss(card.notifId)
                 }
 
                 MouseArea {
                     anchors.fill: parent
-                    onClicked: {
-                        const obj = root.notifObjects[card.notifId];
-                        if (obj)
-                            obj.dismiss();
-                        else
-                            root.removeById(card.notifId);
-                    }
+                    onClicked: root.dismiss(card.notifId)
                 }
 
                 Row {
@@ -135,7 +129,8 @@ PanelWindow {
                         Text {
                             width: parent.width
                             text: card.appName + ": " + card.summary
-                            color: Colors.foreground
+                            textFormat: Text.PlainText
+                            color: Colors.brightForeground
                             font.bold: true
                             font.pointSize: 11
                             wrapMode: Text.Wrap
