@@ -12,6 +12,79 @@ let
   # Static fallback for zellij (settings.theme and the `zellij` function).
   schedule = import ./themes/schedule.nix;
   fallbackTheme = (builtins.head schedule).theme;
+
+  # ---- Zellij: keybinding help popup (F1) and the hint in the bar ----
+  # The keybinds in programs.zellij below replace all of zellij's defaults,
+  # so this cheatsheet is the only list of them. Keep it in step with them.
+  zellijHelp = pkgs.writeText "zellij-keys.txt" ''
+    ZELLIJ KEYBINDINGS            (q closes this, arrows / j k scroll)
+    =====================================================================
+
+    Mouse
+      Click a tab in the bar           switch to it
+      Click "F1 key help" in the bar   open this help
+      Click / drag / scroll in panes   focus, select (copies), scroll
+
+    Anywhere
+      F1                  this help
+
+    Normal mode
+      Alt t               new tab
+      Alt w               close the current tab
+      Alt ,   Alt .       previous / next tab
+      Ctrl n              new pane
+      Ctrl h j k l        move focus left / down / up / right
+      Ctrl f              show / hide floating panes
+      Alt -   Alt =       shrink / grow the pane
+      Ctrl g              lock / unlock (keys go to the program)
+      Ctrl p/t/s/o        pane / tab / scroll / session mode (Esc leaves)
+
+    Pane mode (Ctrl p)
+      n new   x close   f fullscreen   z toggle frames   r rename
+      h j k l move focus
+
+    Tab mode (Ctrl t)
+      n new   x close   r rename   h / l previous / next   1-4 go to tab
+
+    Scroll mode (Ctrl s)
+      j / k line   d / u half page   G bottom   / search (then n / N)
+
+    Session mode (Ctrl o)
+      d detach   w session manager   c configuration
+  '';
+
+  # The one-line hint pane at the right of the bar. It shows "F1 key help".
+  # Clicking it makes zellij focus the pane, which the terminal reports as a
+  # focus-in event (ESC [ I); that sends focus back to the previous pane and
+  # opens the help.
+  zellijHint = pkgs.writeShellScript "zellij-hint" ''
+    zellij=${config.programs.zellij.package}/bin/zellij
+    # No echo: the terminal's focus reports would otherwise be printed here.
+    stty -echo
+    draw() { printf '\r\033[K \033[1mF1\033[0m key help'; }
+    printf '\033[?25l\033[?1004h'
+    draw
+    while IFS= read -rsn1 c; do
+      [ "$c" = $'\033' ] || continue
+      IFS= read -rsn2 -t 0.1 seq || continue
+      if [ "$seq" = '[I' ]; then
+        "$zellij" action focus-previous-pane
+        "$zellij" run --floating --close-on-exit --name Keybindings \
+          --x 5% --y 5% --width 90% --height 90% -- \
+          ${pkgs.less}/bin/less -R ${zellijHelp} >/dev/null 2>&1
+      fi
+      draw
+    done
+    exec sleep infinity
+  '';
+
+  # compact-bar (tabs + mode) with the hint pane to its right.
+  zellijBar = ''
+    pane size=1 split_direction="vertical" {
+        pane borderless=true { plugin location="zellij:compact-bar"; }
+        pane size=14 borderless=true { command "${zellijHint}"; }
+    }
+  '';
 in
 {
   imports = [
@@ -449,7 +522,7 @@ in
       # matters for a session started some other way.
       theme = fallbackTheme;
       default_shell = "fish";
-      default_layout = "compact";
+      default_layout = "main";
       mouse_mode = true;
       pane_frames = false;
       mirror_session = false;
@@ -511,6 +584,13 @@ in
               bind "Ctrl p" { SwitchToMode "pane"; }
               bind "Ctrl s" { SwitchToMode "scroll"; }
               bind "Ctrl t" { SwitchToMode "tab"; }
+              bind "Alt t" { NewTab; }
+              bind "Alt w" { CloseTab; }
+              bind "Alt ," { GoToPreviousTab; }
+              bind "Alt ." { GoToNextTab; }
+          }
+          shared {
+              bind "F1" { Run "${pkgs.less}/bin/less" "-R" "${zellijHelp}" { floating true; close_on_exit true; name "Keybindings"; x "5%"; y "5%"; width "90%"; height "90%"; }; }
           }
           locked {
               bind "Ctrl g" { SwitchToMode "normal"; }
@@ -568,6 +648,16 @@ in
     # Your `dev` layout, referenced by the fish `dev` function above.
     # home-manager writes this to $XDG_CONFIG_HOME/zellij/layouts/dev.kdl
     layouts = {
+      # Default layout (default_layout above): zellij's compact layout plus
+      # the F1 hint in the bar.
+      main = ''
+        layout {
+            default_tab_template {
+                children
+                ${zellijBar}
+            }
+        }
+      '';
       dev = ''
         layout {
             pane split_direction="vertical" {
@@ -579,9 +669,7 @@ in
                     pane { command "yazi"; }
                 }
             }
-            pane size=1 borderless=true {
-                plugin location="zellij:compact-bar"
-            }
+            ${zellijBar}
         }
       '';
     };
