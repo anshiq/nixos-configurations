@@ -1,7 +1,7 @@
 <!-- Wallpaper template: __BG__/__FG__/__BRIGHT__/__ACCENT__/__ACCENT2__/__MUTED__
-     are placeholders substituted per-theme by waybar/scripts/render-wallpaper.sh
-     (values pulled from the active theme's quickshell theme.json) - this file
-     itself is never shown as-is. See theme-switch.sh for the render call. -->
+     are placeholders substituted per-theme by the render-wallpaper command
+     (values pulled from the active theme palette, theme.json) - this file
+     itself is never shown as-is. See render-wallpaper for the render call. -->
 <svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
 <rect width="1920" height="1080" fill="__BG__"/>
 <style>

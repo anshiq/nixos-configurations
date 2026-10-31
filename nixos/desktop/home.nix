@@ -115,8 +115,6 @@ in
       hyprpicker
       hyprsunset
       libnotify
-      obs-studio # still launched by the bar's record plugin
-      pamixer # still used by the bar's volume plugin
       playerctl
       quickshell
       slurp
