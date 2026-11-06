@@ -430,15 +430,8 @@ in
       };
 
       zellij = {
-        description = "Wraps the real zellij to launch with the desktop's active theme";
+        description = "Wraps zellij to run sessions against the live theme config";
         body = ''
-          # Active theme name, written by theme-switch on every switch.
-          set -l theme_file "$HOME/.local/state/desktop/theme"
-          set -l theme ${fallbackTheme}
-          if test -r $theme_file
-              set theme (cat $theme_file)
-          end
-
           # Session history cap: keep only the 15 newest EXITED (resurrectable)
           # sessions, delete the rest. zellij has no built-in limit. Live
           # sessions are never touched (no --force, EXITED lines only).
@@ -448,20 +441,17 @@ in
               command zellij delete-session $old >/dev/null 2>&1
           end
 
-          # zellij 0.44 has no top-level --theme flag; overriding it means
-          # appending the `options` subcommand, which only applies when
-          # starting a brand-new session - it can't be chained after
-          # attach/list-sessions/etc, so those pass through untouched.
-          if test (count $argv) -eq 0
-              command zellij options --theme $theme
-          else
-              switch $argv[1]
-                  case '-*'
-                      command zellij $argv options --theme $theme
-                  case '*'
-                      command zellij $argv
-              end
-          end
+          # theme-switch rewrites this copy on every switch. Zellij watches its
+          # active config file and re-applies theme changes live, so sessions
+          # started with it recolor without a restart - unlike the stock
+          # ~/.config/zellij/config.kdl, which is a read-only template with
+          # every theme inlined. Fall back to the stock config only when the
+          # copy is missing (first login, before theme-init has run).
+          set -l live_config "$HOME/.local/state/desktop/zellij-config.kdl"
+          set -l config_args
+          test -f $live_config; and set config_args --config $live_config
+
+          command zellij $config_args $argv
         '';
       };
     };
@@ -500,13 +490,12 @@ in
     enableFishIntegration = true; # you launch zellij manually / via `dev`, not on every shell start
 
     settings = {
-      # Static default only - never live-reloaded (zellij has no reload
-      # signal for this). Derived from schedule.nix's first entry instead of
-      # a hand-picked name so it can't go stale again the way the old
-      # hardcoded "tokyo-night" did after that theme was removed. Any
-      # session started through the `zellij` fish function below overrides
-      # this with the desktop's actual active theme; this default only
-      # matters for a session started some other way.
+      # Fallback only: sessions started through the `zellij` fish function
+      # below run against ~/.local/state/desktop/zellij-config.kdl, which
+      # theme-switch rewrites on every switch (and zellij live-reapplies).
+      # This default matters only for a session started some other way - it
+      # is the schedule's first entry rather than a hand-picked name so it
+      # can't go stale if that theme is ever removed.
       theme = fallbackTheme;
       default_shell = "fish";
       default_layout = "main";

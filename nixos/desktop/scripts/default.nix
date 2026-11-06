@@ -71,6 +71,7 @@ rec {
       pkgs.procps
       pkgs.systemd
       pkgs.hyprland
+      pkgs.util-linux # flock: serialize concurrent theme switches
     ];
   };
 

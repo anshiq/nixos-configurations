@@ -388,15 +388,18 @@ in
       };
     };
   }
-  # One service+timer pair per ../themes/schedule.nix entry.
+  # One service+timer pair per ../themes/schedule.nix entry. Each applies
+  # whatever the schedule says *now* (no explicit theme): a Persistent timer
+  # catching up after boot/suspend must not apply the theme of the missed
+  # window, and several firing at once must not fight each other.
   // lib.listToAttrs (
     map (entry: {
       name = "theme-${entry.theme}";
       value = {
-        Unit.Description = "Switch the desktop to the ${entry.theme} theme";
+        Unit.Description = "Apply the desktop theme scheduled at ${entry.time}";
         Service = {
           Type = "oneshot";
-          ExecStart = "${scripts.theme-switch}/bin/theme-switch ${entry.theme}";
+          ExecStart = "${scripts.theme-switch}/bin/theme-switch";
         };
       };
     }) schedule
