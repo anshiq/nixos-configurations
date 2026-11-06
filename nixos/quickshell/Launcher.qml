@@ -18,11 +18,14 @@ Overlay {
 
     function updateFilter() {
         const q = search.text.toLowerCase();
-        const apps = DesktopEntries.applications.values.filter(e => !e.noDisplay && (q === "" || e.name.toLowerCase().includes(q) || (e.genericName || "").toLowerCase().includes(q)));
+        // Compare without whitespace so e.g. "kdeconnect" matches "KDE Connect".
+        const squash = s => s.toLowerCase().replace(/\s+/g, "");
+        const qs = squash(q);
+        const apps = DesktopEntries.applications.values.filter(e => !e.noDisplay && (qs === "" || squash(e.name).includes(qs) || squash(e.genericName || "").includes(qs)));
         // Prefix matches first, then alphabetical.
         apps.sort((a, b) => {
-            const pa = a.name.toLowerCase().startsWith(q) ? 0 : 1;
-            const pb = b.name.toLowerCase().startsWith(q) ? 0 : 1;
+            const pa = squash(a.name).startsWith(qs) ? 0 : 1;
+            const pb = squash(b.name).startsWith(qs) ? 0 : 1;
             return pa - pb || a.name.localeCompare(b.name);
         });
         root.filtered = apps;

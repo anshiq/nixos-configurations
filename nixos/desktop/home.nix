@@ -312,6 +312,43 @@ in
       };
     };
 
+    # KDE Connect daemon (phone pairing, file/clipboard/notification sync). No
+    # tray indicator: pair and manage from `kdeconnect-app`. Started with the
+    # session so the phone can always reach this machine.
+    kdeconnectd = {
+      Unit = sessionUnit "KDE Connect daemon";
+      Install.WantedBy = [ sessionTarget ];
+      Service = {
+        ExecStart = "${pkgs.kdePackages.kdeconnect-kde}/bin/kdeconnectd";
+        Restart = "on-failure";
+        RestartSec = "5";
+      };
+    };
+
+    # Points every paired device's KDE Connect "received files" folder at
+    # ~/Shared/KDE Connect (default is ~/Downloads). The setting is per device
+    # (~/.config/kdeconnect/<id>/kdeconnect_share/config), so it is re-applied
+    # whenever kdeconnectd changes that directory (e.g. on pairing a new phone).
+    kdeconnect-share-dir = {
+      Unit.Description = "KDE Connect: save received files to ~/Shared/KDE Connect";
+      Install.WantedBy = [ sessionTarget ];
+      Service = {
+        Type = "oneshot";
+        ExecStart = "${pkgs.writeShellScript "kdeconnect-share-dir" ''
+          dest="$HOME/Shared/KDE Connect"
+          mkdir -p "$dest"
+          for dev in "$HOME"/.config/kdeconnect/*/; do
+            [ -d "$dev" ] || continue
+            cfg="$dev/kdeconnect_share/config"
+            want="incoming_path=$dest"
+            grep -qxF "$want" "$cfg" 2>/dev/null && continue
+            mkdir -p "$dev/kdeconnect_share"
+            { echo "[General]"; echo "$want"; } > "$cfg"
+          done
+        ''}";
+      };
+    };
+
     hyprpolkitagent = {
       Unit = sessionUnit "Polkit authentication agent";
       Install.WantedBy = [ sessionTarget ];
@@ -364,6 +401,12 @@ in
       };
     }) schedule
   );
+
+  systemd.user.paths.kdeconnect-share-dir = {
+    Unit.Description = "Re-apply KDE Connect received-files folder on new devices";
+    Path.PathChanged = "%h/.config/kdeconnect";
+    Install.WantedBy = [ "default.target" ];
+  };
 
   systemd.user.timers = {
     # Two sysfs reads a minute; notify-send only at the thresholds.
@@ -564,6 +607,7 @@ in
         "${home}/Pictures"
         "${home}/Videos"
         "${home}/Desktop"
+        "${home}/Shared"
         "file:///etc/nixos NixOS Config"
       ];
   };

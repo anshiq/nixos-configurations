@@ -184,3 +184,21 @@ Do not begin material implementation until approval is received.
 The goal is to build the right solution while keeping the user informed and in control of important decisions.
 
 <!-- USERONES_END -->
+
+<!-- JACK-KETCH_START -->
+
+## jack-ketch
+
+jack-ketch runs and supervises this project's development processes. Use its MCP tools for dev servers, watchers, workers, and app-tied builds, tests and migrations; a process started in your shell has no captured logs, readiness detection, health checks or restart supervision.
+
+1. Call list_processes first; re-attach to a running instance instead of starting a duplicate.
+2. Call list_apps, then start_process(app=..., mode=...); keep the returned process_id.
+3. Confirm readiness with wait_for_log(process_id, ready=true) or start_process(..., timeout_ms=...).
+4. On failure use process_status, get_logs, search_logs and diagnose_process; restart with restart_process.
+5. After a change use probe or run_checks to verify the running behaviour.
+6. When a result carries save_suggestion, ask the user before saving it as an app mode.
+7. For authenticated endpoints call list_credentials and use probe (the default profile is attached automatically, or credential=<name>); never ask for or look for secret values. If a result carries credential_hint, tell the user to update the profile on the web UI's Credentials page.
+
+Do not use jack-ketch for one-off shell commands (ls, cat, grep, git, docker, kubectl, package managers); use your own tools for those.
+
+<!-- JACK-KETCH_END -->

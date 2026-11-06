@@ -34,7 +34,12 @@ PanelWindow {
     Timer {
         id: hideTimer
         interval: 2000
-        onTriggered: root.revealed = false
+        onTriggered: {
+            if (hoverHandler.hovered)
+                hideTimer.stop();
+            else
+                root.revealed = false;
+        }
     }
 
     // Shared tooltip. tooltipTarget is never reset to null: Quickshell 0.3.0
@@ -57,17 +62,20 @@ PanelWindow {
         active: root.active
     }
 
-    // Under the widgets; NoButton lets clicks through while still tracking
-    // hover over the whole strip.
-    MouseArea {
-        anchors.fill: parent
-        hoverEnabled: true
-        acceptedButtons: Qt.NoButton
-        onEntered: {
-            hideTimer.stop();
-            root.revealed = true;
+    // Tracks cursor containment over the whole strip geometrically. Never
+    // grabs presses and doesn't compete with the widgets' hover areas, so it
+    // survives the reveal/hide surface reconfigure that breaks MouseArea's
+    // enter/exit transitions.
+    HoverHandler {
+        id: hoverHandler
+        onHoveredChanged: {
+            if (hovered) {
+                hideTimer.stop();
+                root.revealed = true;
+            } else {
+                hideTimer.restart();
+            }
         }
-        onExited: hideTimer.restart()
     }
 
     Item {

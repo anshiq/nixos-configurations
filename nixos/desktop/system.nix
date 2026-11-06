@@ -14,6 +14,29 @@
     thunar-volman
   ];
 
+  # Thunar's right-click "Send To > Bluetooth Device" entry. blueman ships the
+  # entry (share/Thunar/sendto/) and the blueman-sendto picker/sender, which
+  # talks to bluez's obexd (user service, enabled by hardware.bluetooth). Only
+  # the package is installed: services.blueman is not enabled, so no applet or
+  # manager competes with the settings app's Bluetooth page. NixOS does not link
+  # /share/Thunar by default, so Thunar would never see the entry otherwise.
+  environment.pathsToLink = [ "/share/Thunar" ];
+
+  # Files received over Bluetooth (OBEX) land in ~/Shared/Bluetooth instead of
+  # obexd's default cache dir. Overrides ExecStart of bluez's obex user unit.
+  systemd.user.services.obex.serviceConfig = {
+    ExecStartPre = "${pkgs.coreutils}/bin/mkdir -p %h/Shared/Bluetooth";
+    ExecStart = [
+      ""
+      "${pkgs.bluez}/libexec/bluetooth/obexd --root=%h/Shared/Bluetooth"
+    ];
+  };
+
+  # KDE Connect: installs the package (incl. Thunar's "Send via KDE Connect"
+  # entry, share/Thunar/sendto/) and opens TCP/UDP 1714-1764 for LAN discovery
+  # and transfers. The daemon is started by a session service in desktop/home.nix.
+  programs.kdeconnect.enable = true;
+
   services.gvfs.enable = true; # Mount, trash, and other functionalities
   services.tumbler.enable = true;
   programs.xfconf.enable = true;
@@ -78,6 +101,7 @@
   services.logind.settings.Login.HandlePowerKey = "ignore";
 
   environment.systemPackages = with pkgs; [
+    blueman # Thunar "Send To > Bluetooth Device" (blueman-sendto), see above
     google-chrome
     firefox
     ghostty
