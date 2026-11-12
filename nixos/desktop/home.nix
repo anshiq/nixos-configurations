@@ -144,7 +144,7 @@ in
       # (~/.config/Thunar/uca.xml) runs `exo-open`; the archive plugin's
       # Create/Extract entries need an archiver; GLib launches terminal-only
       # apps (Helix, yazi) through xdg-terminal-exec.
-      xfce.exo
+      xfce4-exo # Thunar's exo-open helper (was pkgs.xfce.exo, moved to top-level)
       file-roller
       p7zip
       xdg-terminal-exec

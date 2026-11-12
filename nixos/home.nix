@@ -103,7 +103,7 @@ in
     prettier
     black
     gotools # goimports
-    nixfmt-rfc-style # nix formatter
+    nixfmt # nix formatter (nixfmt-rfc-style is the same package, deprecated name)
     shfmt
 
     # Used in your keybinds

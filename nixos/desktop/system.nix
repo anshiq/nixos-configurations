@@ -9,9 +9,9 @@
     xwayland.enable = true;
   };
   programs.thunar.enable = true;
-  programs.thunar.plugins = with pkgs.xfce; [
-    thunar-archive-plugin
-    thunar-volman
+  programs.thunar.plugins = [
+    pkgs.thunar-archive-plugin
+    pkgs.thunar-volman
   ];
 
   # Thunar's right-click "Send To > Bluetooth Device" entry. blueman ships the
