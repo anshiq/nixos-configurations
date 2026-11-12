@@ -1,6 +1,7 @@
 # /etc/nixos/configuration.nix
 
 {
+  lib,
   pkgs,
   ...
 }:
@@ -21,6 +22,30 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
   nixpkgs.config.allowUnfree = true;
+
+  ############################
+  ## Boot speed
+  ############################
+  # Measured 2026-11-11 with systemd-analyze; see the comments per item.
+
+  # No boot menu wait (it cost 3-6s every boot). The menu is still reachable:
+  # hold Space while the machine powers on to pick an older generation.
+  boot.loader.timeout = 0;
+
+  # amdgpu is deliberately NOT loaded in the initrd (hardware.amdgpu.initrd).
+  # Measured 2026-11-11: loading the module costs ~4s of kernel CPU on this
+  # Ryzen 3 3250U wherever it happens. In the initrd that ran serially
+  # (initrd 2.8s -> 6.5s) and pulled all AMD firmware in (initrd 28M -> 61M);
+  # loaded by udev after switch-root it overlaps with other boot work.
+
+  # Quiet boot console: systemd/kernel/udev messages go to the journal only
+  # (`journalctl -b`), not to the framebuffer console.
+  boot.kernelParams = [
+    "quiet"
+    "udev.log_level=3"
+  ];
+  boot.consoleLogLevel = 3;
+  boot.initrd.verbose = false;
 
   networking.hostName = "nixos";
   networking.networkmanager.enable = true;
@@ -117,6 +142,10 @@
   ############################
 
   programs.fish.enable = true;
+  # The fish module turns on the man-page index (needed for its man
+  # completions) and builds it with a mandb.service on *every boot* (rsync +
+  # mandb, ~123 MB read). Build it into the system closure instead.
+  documentation.man.cache.generateAtRuntime = false;
 
   users.users.nixos = {
     isNormalUser = true;
@@ -152,6 +181,20 @@
       registry-mirrors = [ "https://mirror.gcr.io" ];
     };
   };
+  # Boot speed: don't start dockerd (and its restart=unless-stopped containers)
+  # at the same moment as Hyprland on this 2-core CPU. A timer starts it 15s
+  # after the user manager comes up (i.e. after login). `systemctl --user
+  # start docker` still works any time; until then the docker CLI reports it
+  # cannot connect to the daemon.
+  systemd.user.services.docker.wantedBy = lib.mkForce [ ];
+  systemd.user.timers.docker-delayed = {
+    description = "Start rootless Docker shortly after login";
+    wantedBy = [ "default.target" ];
+    timerConfig = {
+      OnActiveSec = "15s";
+      Unit = "docker.service";
+    };
+  };
 
   ############################
   ## QEMU/KVM Virtualization (rootless, GNOME Boxes)
@@ -160,6 +203,12 @@
   # a per-user virtqemud/qemu process instead of using the system-wide
   # qemu:///system daemon, so VMs run as your own user rather than root.
   virtualisation.libvirtd.enable = true;
+  # Boot speed: Boxes uses qemu:///session, so the system daemon is not
+  # started at boot. libvirtd.socket stays enabled, so the first
+  # qemu:///system client (virsh, virt-manager) starts it on demand.
+  # libvirt-guests only autostarts/suspends *system* VMs, of which there are none.
+  systemd.services.libvirtd.wantedBy = lib.mkForce [ ];
+  systemd.services.libvirt-guests.wantedBy = lib.mkForce [ ];
   virtualisation.spiceUSBRedirection.enable = true;
   programs.dconf.enable = true; # GNOME apps (incl. Boxes) need dconf for settings
 
@@ -186,6 +235,7 @@
     wget
     lsof
     fastfetch
+    openssl
 
     # Modern CLI tools
     eza

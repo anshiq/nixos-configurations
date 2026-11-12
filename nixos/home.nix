@@ -121,6 +121,10 @@ in
 
     # C / C++
     gcc # includes g++ (gcc wrapper handles both)
+    # clang: Odin links via `clang`. Both cc-wrappers ship cc/c++/ld/binutils
+    # and already default to meta.priority 10 (so lib.lowPrio ties), so push
+    # clang to 20: gcc keeps the shared names, clang only adds clang/clang++.
+    (lib.setPrio 20 clang)
     gnumake
     cmake
     pkg-config # almost always needed alongside cmake/gcc for library detection

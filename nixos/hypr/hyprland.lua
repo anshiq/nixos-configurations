@@ -23,6 +23,41 @@ hl.monitor({
   scale    = "auto",
 })
 
+-- Workspaces 1-5 belong to the laptop panel, 6-10 to an external monitor
+-- (the bar groups them that way, quickshell/bar/Workspaces.qml). Rules apply
+-- when a workspace is created; with no external monitor 6-10 open on the
+-- laptop. The external rules follow whichever port the monitor is plugged in.
+local laptop = "eDP-1"
+for i = 1, 5 do
+  hl.workspace_rule({ workspace = tostring(i), monitor = laptop })
+end
+
+local external_rules = {} -- monitor name -> its rules for 6-10
+local function pin_external()
+  local external
+  for _, m in ipairs(hl.get_monitors()) do
+    if m.name ~= laptop and not m.is_mirror then
+      external = m.name
+      break
+    end
+  end
+  for name, rules in pairs(external_rules) do
+    for _, rule in ipairs(rules) do
+      rule:set_enabled(name == external)
+    end
+  end
+  if external and not external_rules[external] then
+    local rules = {}
+    for i = 6, 10 do
+      rules[#rules + 1] = hl.workspace_rule({ workspace = tostring(i), monitor = external })
+    end
+    external_rules[external] = rules
+  end
+end
+pin_external()
+hl.on("monitor.added", pin_external)
+hl.on("monitor.removed", pin_external)
+
 -- NOTE: render { explicit_sync = 0 } (old zed workaround) is GONE in 0.50+:
 -- explicit sync is now always enabled by default in Hyprland, so the option
 -- was removed upstream and has no Lua equivalent in 0.56.x.
@@ -182,6 +217,8 @@ for i = 1, 9 do
   hl.bind(mod .. " + " .. i, hl.dsp.focus({ workspace = i }))
   hl.bind(mod .. " + SHIFT + " .. i, hl.dsp.window.move({ workspace = i }))
 end
+hl.bind(mod .. " + 0", hl.dsp.focus({ workspace = 10 }))
+hl.bind(mod .. " + SHIFT + 0", hl.dsp.window.move({ workspace = 10 }))
 
 -- Scratchpad
 hl.bind(mod .. " + S", hl.dsp.workspace.toggle_special("scratchpad"))

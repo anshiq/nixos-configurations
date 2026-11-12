@@ -1,4 +1,4 @@
-// Top bar. Auto-hides to a 1px hover strip; widgets pause their timers
+// Top bar, one per monitor (see shell.qml). Auto-hides to a 1px hover strip; widgets pause their timers
 // while it is hidden or the session is locked.
 import QtQuick
 import Quickshell
@@ -90,6 +90,7 @@ PanelWindow {
         }
 
         Workspaces {
+            screen: root.screen
             anchors.left: parent.left
             anchors.leftMargin: 6
             anchors.verticalCenter: parent.verticalCenter

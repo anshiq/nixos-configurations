@@ -8,7 +8,15 @@ import Quickshell
 import Quickshell.Io
 
 ShellRoot {
-    Bar {}
+    // One bar per monitor; bars come and go as monitors are plugged in.
+    Variants {
+        model: Quickshell.screens
+
+        Bar {
+            required property var modelData
+            screen: modelData
+        }
+    }
     Launcher {}
     ClipboardPanel {}
     PowerMenu {}
