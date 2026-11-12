@@ -159,7 +159,7 @@
       "kvm"
     ];
     shell = pkgs.fish;
-    initialPassword = "a";
+    initialPassword = "12345678";
 
   };
   security.sudo.enable = true;
