@@ -1,6 +1,7 @@
 # /etc/nixos/configuration.nix
 
 {
+  lib,
   pkgs,
   ...
 }:
@@ -19,6 +20,24 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
   nixpkgs.config.allowUnfree = true;
+
+  ############################
+  ## Boot speed
+  ############################
+  # Measured 2026-11-11 with systemd-analyze on the desktop branch's laptop.
+
+  # No boot menu wait (it cost 3-6s every boot). The menu is still reachable:
+  # hold Space while the machine powers on to pick an older generation.
+  boot.loader.timeout = 0;
+
+  # Quiet boot console: systemd/kernel/udev messages go to the journal only
+  # (`journalctl -b`), not to the framebuffer console.
+  boot.kernelParams = [
+    "quiet"
+    "udev.log_level=3"
+  ];
+  boot.consoleLogLevel = 3;
+  boot.initrd.verbose = false;
 
   networking.hostName = "nixos";
   networking.networkmanager.enable = true; # nmcli / nmtui
@@ -110,6 +129,10 @@
   ############################
 
   programs.fish.enable = true;
+  # The fish module turns on the man-page index (needed for its man
+  # completions) and builds it with a mandb.service on *every boot* (rsync +
+  # mandb, ~123 MB read). Build it into the system closure instead.
+  documentation.man.cache.generateAtRuntime = false;
 
   users.users.nixos = {
     isNormalUser = true;
@@ -145,11 +168,30 @@
       registry-mirrors = [ "https://mirror.gcr.io" ];
     };
   };
+  # Boot speed: don't start dockerd (and its restart=unless-stopped containers)
+  # at the same moment as everything else on a 2-core CPU. A timer starts it
+  # 15s after the user manager comes up (i.e. after login). `systemctl --user
+  # start docker` still works any time; until then the docker CLI reports it
+  # cannot connect to the daemon.
+  systemd.user.services.docker.wantedBy = lib.mkForce [ ];
+  systemd.user.timers.docker-delayed = {
+    description = "Start rootless Docker shortly after login";
+    wantedBy = [ "default.target" ];
+    timerConfig = {
+      OnActiveSec = "15s";
+      Unit = "docker.service";
+    };
+  };
 
   ############################
   ## QEMU/KVM Virtualization (libvirt, driven with virsh)
   ############################
   virtualisation.libvirtd.enable = true;
+  # Boot speed: libvirtd.socket stays enabled, so the first client (virsh,
+  # virt-manager) starts the daemon on demand instead of at boot.
+  # libvirt-guests only autostarts/suspends VMs, of which there are none.
+  systemd.services.libvirtd.wantedBy = lib.mkForce [ ];
+  systemd.services.libvirt-guests.wantedBy = lib.mkForce [ ];
 
   ############################
   ## System Packages
@@ -174,6 +216,7 @@
     wget
     lsof
     fastfetch
+    openssl
 
     # Modern CLI tools
     eza
@@ -199,6 +242,18 @@
     docker-compose
 
     maven
+
+    # Text / file tools
+    sd # intuitive find-and-replace (sed alternative)
+    delta # git diff pager, wired up in programs.git.config below
+
+    # Sync & backup
+    rsync
+    rclone
+    restic
+
+    # Windows-formatted drives (read/write NTFS)
+    ntfs3g
 
     # Networking tools (curl, wget, lsof, openssh are above)
     net-tools # ifconfig, netstat, route, arp
@@ -226,6 +281,17 @@
   ############################
 
   programs.git.enable = true;
+  # delta as the pager for diff/log/show/blame (system gitconfig; ~/.gitconfig
+  # still overrides).
+  programs.git.config = {
+    core.pager = "delta";
+    interactive.diffFilter = "delta --color-only";
+    delta = {
+      navigate = true;
+      line-numbers = true;
+    };
+    merge.conflictStyle = "zdiff3";
+  };
 
   ############################
   ## Zoxide
@@ -260,6 +326,20 @@
     "nix-command"
     "flakes"
   ];
+
+  # Keep the store from growing without bound: weekly GC of anything older
+  # than 14 days (current + recent generations stay), and hard-link dedupe.
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 14d";
+  };
+  nix.optimise.automatic = true;
+
+  # SSD TRIM, compressed swap in RAM, and firmware updates (`fwupdmgr`).
+  services.fstrim.enable = true;
+  zramSwap.enable = true;
+  services.fwupd.enable = true;
 
   ############################
   ## Locale
