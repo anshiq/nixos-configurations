@@ -42,7 +42,11 @@ let
     export GREETER_SESSION_CMD=${lib.escapeShellArg cfg.sessionCommand}
     export GREETER_SHARED_DIR=${sharedDir}
     export GREETER_FALLBACK_WALLPAPER=${fallbackWallpaper}
-    exec ${pkgs.cage}/bin/cage -s -d -- ${pkgs.quickshell}/bin/quickshell -p ${./greeter}
+    # -m last: show the greeter on a single output. cage's default (extend)
+    # stretches its one window across every monitor, so with an external
+    # display the login screen is split half and half between them, and its
+    # corner buttons can land outside the area either monitor shows.
+    exec ${pkgs.cage}/bin/cage -s -d -m last -- ${pkgs.quickshell}/bin/quickshell -p ${./greeter}
   '';
 in
 {
