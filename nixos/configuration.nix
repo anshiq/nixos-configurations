@@ -112,6 +112,10 @@
   ############################
 
   programs.fish.enable = true;
+  # The fish module turns on the man-page index (needed for its man
+  # completions) and builds it with a mandb.service on *every boot* (rsync +
+  # mandb, ~123 MB read). Build it into the system closure instead.
+  documentation.man.cache.generateAtRuntime = false;
 
   users.users.nixos = {
     isNormalUser = true;
@@ -163,6 +167,7 @@
     wget
     lsof
     fastfetch
+    openssl
 
     # Modern CLI tools
     eza
@@ -188,6 +193,15 @@
     docker-compose
 
     maven
+
+    # Text / file tools
+    sd # intuitive find-and-replace (sed alternative)
+    delta # git diff pager, wired up in programs.git.config below
+
+    # Sync & backup
+    rsync
+    rclone
+    restic
 
     # Networking tools (curl, wget, lsof, openssh are above)
     net-tools # ifconfig, netstat, route, arp
@@ -215,6 +229,17 @@
   ############################
 
   programs.git.enable = true;
+  # delta as the pager for diff/log/show/blame (system gitconfig; ~/.gitconfig
+  # still overrides).
+  programs.git.config = {
+    core.pager = "delta";
+    interactive.diffFilter = "delta --color-only";
+    delta = {
+      navigate = true;
+      line-numbers = true;
+    };
+    merge.conflictStyle = "zdiff3";
+  };
 
   ############################
   ## Zoxide
@@ -249,6 +274,15 @@
     "nix-command"
     "flakes"
   ];
+
+  # Keep the store from growing without bound: weekly GC of anything older
+  # than 14 days (current + recent generations stay), and hard-link dedupe.
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 14d";
+  };
+  nix.optimise.automatic = true;
 
   ############################
   ## Locale
