@@ -23,40 +23,72 @@ hl.monitor({
   scale    = "auto",
 })
 
--- Workspaces 1-5 belong to the laptop panel, 6-10 to an external monitor
--- (the bar groups them that way, quickshell/bar/Workspaces.qml). Rules apply
--- when a workspace is created; with no external monitor 6-10 open on the
--- laptop. The external rules follow whichever port the monitor is plugged in.
-local laptop = "eDP-1"
-for i = 1, 5 do
-  hl.workspace_rule({ workspace = tostring(i), monitor = laptop })
+-- Workspaces 1-5 belong to the main monitor, 6-10 to a second one (the bar
+-- groups them that way, quickshell/bar/Workspaces.qml). The main monitor is the
+-- laptop's built-in panel (eDP-*, LVDS-*, DSI-*) when there is one, otherwise
+-- the first monitor Hyprland lists, so a desktop PC works too. The second is
+-- the first other monitor, whichever port it is plugged in to. Rules apply when
+-- a workspace is created; with only one monitor 6-10 open on it.
+local function is_internal(name)
+  return name:match("^eDP") or name:match("^LVDS") or name:match("^DSI")
 end
 
-local external_rules = {} -- monitor name -> its rules for 6-10
-local function pin_external()
-  local external
+local pinned = {} -- monitor name -> { [1] = rules for 1-5, [2] = rules for 6-10 }
+local function pin_workspaces()
+  local names = {}
   for _, m in ipairs(hl.get_monitors()) do
-    if m.name ~= laptop and not m.is_mirror then
-      external = m.name
+    if not m.is_mirror then
+      names[#names + 1] = m.name
+    end
+  end
+  local main
+  for _, name in ipairs(names) do
+    if is_internal(name) then
+      main = name
       break
     end
   end
-  for name, rules in pairs(external_rules) do
-    for _, rule in ipairs(rules) do
-      rule:set_enabled(name == external)
+  main = main or names[1]
+  local second
+  for _, name in ipairs(names) do
+    if name ~= main then
+      second = name
+      break
     end
   end
-  if external and not external_rules[external] then
-    local rules = {}
-    for i = 6, 10 do
-      rules[#rules + 1] = hl.workspace_rule({ workspace = tostring(i), monitor = external })
+
+  local groups = { { 1, 5 }, { 6, 10 } }
+  local function enable(monitor, g, on)
+    if monitor == nil then
+      return
     end
-    external_rules[external] = rules
+    pinned[monitor] = pinned[monitor] or {}
+    if not pinned[monitor][g] then
+      if not on then
+        return
+      end
+      local rules = {}
+      for i = groups[g][1], groups[g][2] do
+        rules[#rules + 1] = hl.workspace_rule({ workspace = tostring(i), monitor = monitor })
+      end
+      pinned[monitor][g] = rules
+    end
+    for _, rule in ipairs(pinned[monitor][g]) do
+      rule:set_enabled(on)
+    end
   end
+
+  -- Switch off whatever no longer applies, then switch on the current pair.
+  for monitor, _ in pairs(pinned) do
+    enable(monitor, 1, monitor == main)
+    enable(monitor, 2, monitor == second)
+  end
+  enable(main, 1, true)
+  enable(second, 2, true)
 end
-pin_external()
-hl.on("monitor.added", pin_external)
-hl.on("monitor.removed", pin_external)
+pin_workspaces()
+hl.on("monitor.added", pin_workspaces)
+hl.on("monitor.removed", pin_workspaces)
 
 -- NOTE: render { explicit_sync = 0 } (old zed workaround) is GONE in 0.50+:
 -- explicit sync is now always enabled by default in Hyprland, so the option

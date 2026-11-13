@@ -1,4 +1,9 @@
 # /etc/nixos/configuration.nix
+#
+# Everything shared by every machine. Hardware lives in hosts/<name>/ (its
+# hardware-configuration.nix plus the modules/hardware/* pieces it opts into:
+# boot loader, CPU, GPU, laptop vs desktop, VM guest); flake.nix builds one
+# system per host. See hosts/README.md.
 
 {
   lib,
@@ -8,9 +13,6 @@
 
 {
   imports = [
-    # This file must come from the native NixOS installer for the target machine.
-    # Generate it with `nixos-generate-config` before the first native rebuild.
-    ./hardware-configuration.nix
     ./desktop/system.nix
     ./desktop/greeter.nix
   ];
@@ -19,24 +21,17 @@
   ## Native NixOS
   ############################
 
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
   nixpkgs.config.allowUnfree = true;
 
   ############################
   ## Boot speed
   ############################
-  # Measured 2026-11-11 with systemd-analyze; see the comments per item.
+  # Measured 2026-11-11 with systemd-analyze on a 2-core Ryzen 3 3250U laptop;
+  # see the comments per item. (GPU-specific tuning lives in modules/hardware.)
 
   # No boot menu wait (it cost 3-6s every boot). The menu is still reachable:
   # hold Space while the machine powers on to pick an older generation.
   boot.loader.timeout = 0;
-
-  # amdgpu is deliberately NOT loaded in the initrd (hardware.amdgpu.initrd).
-  # Measured 2026-11-11: loading the module costs ~4s of kernel CPU on this
-  # Ryzen 3 3250U wherever it happens. In the initrd that ran serially
-  # (initrd 2.8s -> 6.5s) and pulled all AMD firmware in (initrd 28M -> 61M);
-  # loaded by udev after switch-root it overlaps with other boot work.
 
   # Quiet boot console: systemd/kernel/udev messages go to the journal only
   # (`journalctl -b`), not to the framebuffer console.
@@ -47,7 +42,8 @@
   boot.consoleLogLevel = 3;
   boot.initrd.verbose = false;
 
-  networking.hostName = "nixos";
+  # Each host sets its own name; this is only the fallback.
+  networking.hostName = lib.mkDefault "nixos";
   networking.networkmanager.enable = true;
   # bluez daemon: backs the Bluetooth page of the settings app
   # (desktop/settings-app/), which replaces blueman as the pairing UI.
@@ -55,8 +51,8 @@
   #services.blueman.enable = true;
   # Backs the power-profile picker on the settings app's Power page.
   services.power-profiles-daemon.enable = true;
-  # Battery/AC state over DBus for the bar and settings app (Quickshell UPower).
-  services.upower.enable = true;
+  # (Battery/AC state over DBus, services.upower, is laptop-only: see
+  # modules/hardware/laptop.nix.)
 
   # Run selected unpatched precompiled binaries that are not built for NixOS.
   programs.nix-ld.enable = true;

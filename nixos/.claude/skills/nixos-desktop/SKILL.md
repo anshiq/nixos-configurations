@@ -50,6 +50,7 @@ activating), then confirm. Changes to the login greeter need
 | Settings app | Wi-Fi, Bluetooth, sound, display, power, ... | `nixos/desktop/settings-app/` |
 | Desktop commands | theme-switch, bluelight, screen-record, ... | `nixos/desktop/scripts/` |
 | greetd + Quickshell greeter | Login screen | `nixos/desktop/greeter.nix` |
+| Per-machine hardware | Boot loader, CPU, GPU, laptop/desktop/VM; one folder per host | `nixos/hosts/`, `nixos/modules/hardware/` (see `hosts/README.md`) |
 
 Session services are systemd user units bound to `graphical-session.target`
 (defined in `desktop/home.nix`): `quickshell`, `swaybg`, `hypridle`,

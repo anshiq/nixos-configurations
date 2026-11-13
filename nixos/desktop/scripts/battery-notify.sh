@@ -5,7 +5,8 @@ state_file="${XDG_RUNTIME_DIR:-/tmp}/battery-notify-state"
 
 battery=""
 for supply in /sys/class/power_supply/*; do
-  if [ "$(cat "$supply/type" 2>/dev/null)" = Battery ]; then
+  # scope=Device marks peripherals (wireless mouse, headset), not this machine.
+  if [ "$(cat "$supply/type" 2>/dev/null)" = Battery ] && [ "$(cat "$supply/scope" 2>/dev/null)" != Device ]; then
     battery=$supply
     break
   fi

@@ -70,6 +70,8 @@ in
     ./desktop/settings-app.nix
     ./desktop/greeter-sync.nix
     ./ytermusic.nix
+    # Android Studio is only packaged for x86_64; other architectures skip it.
+    { home.packages = lib.optionals pkgs.stdenv.hostPlatform.isx86_64 [ pkgs.android-studio ]; }
   ];
 
   home.stateVersion = "26.05";
@@ -142,7 +144,7 @@ in
     # the CLI too. Prebuilt SDK binaries (adb, aapt2, emulator, NDK
     # toolchain) are unpatched non-Nix ELF binaries; programs.nix-ld
     # (configuration.nix) is what lets them actually run on NixOS.
-    android-studio
+    # (android-studio itself is x86_64-only; it is added further down.)
 
     # Node.js
     nodejs_22 # pin a version instead of floating `nodejs`

@@ -58,6 +58,10 @@ hl.monitor({ output = "", mode = "preferred", position = "auto", scale = "auto" 
 
 List monitors and supported modes: `hyprctl monitors all`.
 
+Workspaces 1-5 are pinned to the built-in panel (any `eDP-*`/`LVDS-*`/`DSI-*`
+name) or, on a desktop PC, the first monitor; 6-10 to the next monitor
+(`pin_workspaces()` in `hyprland.lua`). No port names are hard-coded.
+
 ## Window Rules
 
 **CRITICAL: Hyprland window rules syntax changes frequently between
