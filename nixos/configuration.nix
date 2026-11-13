@@ -1,4 +1,9 @@
 # /etc/nixos/configuration.nix
+#
+# Everything shared by every machine. Hardware lives in hosts/<name>/ (its
+# hardware-configuration.nix plus the modules/hardware/* pieces it opts into:
+# boot loader, CPU, VM guest); flake.nix builds one system per host. See
+# hosts/README.md.
 
 {
   lib,
@@ -7,24 +12,16 @@
 }:
 
 {
-  imports = [
-    # This file must come from the native NixOS installer for the target machine.
-    # Generate it with `nixos-generate-config` before the first native rebuild.
-    ./hardware-configuration.nix
-  ];
-
   ############################
   ## Native NixOS
   ############################
 
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
   nixpkgs.config.allowUnfree = true;
 
   ############################
   ## Boot speed
   ############################
-  # Measured 2026-11-11 with systemd-analyze on the desktop branch's laptop.
+  # Measured 2026-11-11 with systemd-analyze on a 2-core Ryzen 3 3250U laptop.
 
   # No boot menu wait (it cost 3-6s every boot). The menu is still reachable:
   # hold Space while the machine powers on to pick an older generation.
@@ -39,7 +36,8 @@
   boot.consoleLogLevel = 3;
   boot.initrd.verbose = false;
 
-  networking.hostName = "nixos";
+  # Each host sets its own name; this is only the fallback.
+  networking.hostName = lib.mkDefault "nixos";
   networking.networkmanager.enable = true; # nmcli / nmtui
 
   # Caps the wait on a hanging user manager at shutdown at 7s (default 90s).
