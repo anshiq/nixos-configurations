@@ -262,7 +262,7 @@ hl.bind(mod .. " + CTRL + L", hl.dsp.exec_cmd("quickshell ipc call lockscreen lo
 -- Power button locks instead of powering off - logind's HandlePowerKey is
 -- set to "ignore" (desktop/system.nix) so this bind is what actually fires.
 hl.bind("XF86PowerOff", hl.dsp.exec_cmd("quickshell ipc call lockscreen lock"), { locked = true })
--- flameshot region capture (copy, save, annotate, or drag the result out)
+-- region capture across all monitors, annotated in satty (desktop/scripts/screenshot.sh)
 hl.bind("PRINT", hl.dsp.exec_cmd("screenshot"))
 hl.bind(mod .. " + PRINT", hl.dsp.exec_cmd("hyprpicker -a"))
 -- Start/stop a full-screen recording into ~/Videos/Recordings
@@ -358,6 +358,22 @@ hl.window_rule({
   float  = true,
   center = true,
   size   = "900 560",
+})
+
+-- yazi draws image/PDF previews through ueberzugpp (a terminal multiplexer like
+-- zellij can't pass the graphics protocol through), which shows each preview in
+-- its own window with class ueberzugpp_<id>. Without this the preview window
+-- grabs keyboard focus the moment you hover an image or PDF, and tiles beside
+-- the terminal. Keep it floating and never focused.
+hl.window_rule({
+  name             = "ueberzugpp-preview",
+  match            = { class = "^ueberzugpp_.*$" },
+  float            = true,
+  no_initial_focus = true,
+  no_focus         = true,
+  no_anim          = true,
+  no_shadow        = true,
+  border_size      = 0,
 })
 
 hl.window_rule({

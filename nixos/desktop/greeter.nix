@@ -41,6 +41,9 @@ let
     export GREETER_USER=${lib.escapeShellArg loginUser}
     export GREETER_SESSION_CMD=${lib.escapeShellArg cfg.sessionCommand}
     export GREETER_SHARED_DIR=${sharedDir}
+    # Absolute path: the Restart / Shut down buttons must not depend on PATH
+    # inside the greetd session.
+    export GREETER_SYSTEMCTL=${pkgs.systemd}/bin/systemctl
     export GREETER_FALLBACK_WALLPAPER=${fallbackWallpaper}
     # -m last: show the greeter on a single output. cage's default (extend)
     # stretches its one window across every monitor, so with an external
@@ -72,6 +75,20 @@ in
       enable = true;
       settings.default_session.command = "${startGreeter}";
     };
+
+    # The greeter's Restart / Shut down buttons run as the `greeter` user.
+    # logind only allows that for an *active* session; state the permission
+    # explicitly so the buttons do not depend on the session being active
+    # (and never prompt, since the greeter has no polkit agent).
+    security.polkit.extraConfig = ''
+      polkit.addRule(function(action, subject) {
+        if (subject.user == "greeter" &&
+            (action.id == "org.freedesktop.login1.reboot" ||
+             action.id == "org.freedesktop.login1.power-off")) {
+          return polkit.Result.YES;
+        }
+      });
+    '';
 
     # Where greeter-sync (run as the user) drops theme.json and wallpaper for
     # the greeter to read: writable by the user, readable by everyone.

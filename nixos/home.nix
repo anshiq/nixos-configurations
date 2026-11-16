@@ -177,6 +177,7 @@ in
     awscli2
 
     ueberzugpp
+    hugo
   ];
 
   # Package only; config.toml/languages.toml are deployed verbatim below and
@@ -684,5 +685,12 @@ in
       git = pkgs.yaziPlugins.git;
       jump-to-char = pkgs.yaziPlugins."jump-to-char";
     };
+  };
+
+  # Opener for non-text files (see yazi/open.sh): portal-less xdg-open that
+  # keeps focus on the terminal.
+  xdg.configFile."yazi/open.sh" = {
+    source = ./yazi/open.sh;
+    executable = true;
   };
 }

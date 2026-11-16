@@ -109,7 +109,14 @@ rec {
 
   screenshot = mk {
     name = "screenshot";
-    runtimeInputs = [ pkgs.flameshot ];
+    runtimeInputs = base ++ [
+      pkgs.satty
+      pkgs.wl-clipboard
+      pkgs.grim
+      pkgs.slurp
+      pkgs.wayfreeze
+    ];
+    preamble = builtins.readFile ./capture-lib.sh;
   };
 
   screen-record = mk {

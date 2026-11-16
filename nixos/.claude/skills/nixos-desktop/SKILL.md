@@ -65,7 +65,7 @@ the scheduled theme at login). Timers: `battery-notify`, `theme-warmth-ramp`,
 theme-switch [<name>|toggle|next]     # no arg = scheduled theme
 theme-status [--json]
 bluelight status [--json] | toggle | on | off | set <kelvin> | adjust <+N|-N>
-screenshot                            # flameshot gui
+screenshot                            # freeze, drag a region, annotate in satty
 screen-record toggle|start [--region] [--gif] | stop | status [--json]
 ocr [--qr | --text] [--translate [LANG]] [--lang LANGS] [--file F | --stdin]   # copy text/QR from a screen region
 pin [--clipboard]                     # float a screen region / the clipboard image on top

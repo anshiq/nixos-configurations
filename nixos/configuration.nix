@@ -127,6 +127,9 @@
 
     # Misc
     udev
+
+    # AppImages (e.g. ~/.local/bin/tmog) link against libcom_err.so.2
+    e2fsprogs
   ];
   # Do not export a global LD_LIBRARY_PATH on native NixOS: it can override
   # package-specific library resolution and make otherwise reproducible apps unstable.

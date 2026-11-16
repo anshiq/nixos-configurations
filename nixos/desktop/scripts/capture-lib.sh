@@ -1,4 +1,4 @@
-# Shared by ocr and pin (prepended as a preamble by default.nix).
+# Shared by screenshot, ocr and pin (prepended as a preamble by default.nix).
 #
 # freeze_region <out.png>
 #   Freezes the screen (wayfreeze) so moving content holds still, lets the user

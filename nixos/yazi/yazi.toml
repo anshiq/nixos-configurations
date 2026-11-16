@@ -16,8 +16,10 @@ edit = [
   { run = 'hx "$@"', desc = "Helix", block = true }
 ]
 
+# yazi/open.sh = xdg-open without the portal chooser, and focus stays on the
+# terminal while the viewer opens (see the comments in that script).
 open = [
-  { run = 'xdg-open "$@"', desc = "Open" }
+  { run = '"${XDG_CONFIG_HOME:-$HOME/.config}/yazi/open.sh" "$@"', desc = "Open" }
 ]
 
 [open]

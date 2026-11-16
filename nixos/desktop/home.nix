@@ -525,6 +525,30 @@ in
     settings.X-TerminalArgExec = "-e";
   };
 
+  # Task manager AppImage living in ~/.local/bin/tmog. The wrapper shows an
+  # error notification instead of failing silently when the binary is missing.
+  xdg.desktopEntries.task-manager = {
+    name = "Task Manager";
+    genericName = "System Monitor";
+    comment = "Monitor and manage running processes (~/.local/bin/tmog)";
+    exec = "${pkgs.writeShellScript "launch-tmog" ''
+      bin="$HOME/.local/bin/tmog"
+      if [ ! -x "$bin" ]; then
+        ${pkgs.libnotify}/bin/notify-send -u critical -a "Task Manager" \
+          "Task Manager not found" "Expected an executable at $bin"
+        exit 1
+      fi
+      exec "$bin" "$@"
+    ''}";
+    icon = "utilities-system-monitor";
+    terminal = false;
+    categories = [
+      "System"
+      "Monitor"
+    ];
+    settings.Keywords = "task;manager;process;cpu;memory;monitor;tmog;";
+  };
+
   xdg.mimeApps = {
     enable = true;
     defaultApplications = {

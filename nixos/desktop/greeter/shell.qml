@@ -9,6 +9,7 @@
 //   GREETER_SESSION_CMD         command that starts the desktop session
 //   GREETER_SHARED_DIR          where greeter-sync publishes theme.json + wallpaper
 //   GREETER_FALLBACK_WALLPAPER  wallpaper used when nothing has been published yet
+//   GREETER_SYSTEMCTL           systemctl used by the Restart / Shut down buttons
 //
 // The greeter runs as the unprivileged `greeter` user before anyone logs in,
 // so it cannot read ~/.local/state: palette and wallpaper reach it through
@@ -29,6 +30,7 @@ ShellRoot {
 
     readonly property string sharedDir: Quickshell.env("GREETER_SHARED_DIR") || "/var/lib/quickshell-greeter"
     readonly property string fallbackWallpaper: Quickshell.env("GREETER_FALLBACK_WALLPAPER") || ""
+    readonly property string systemctl: Quickshell.env("GREETER_SYSTEMCTL") || "systemctl"
     readonly property var sessionCommand: (Quickshell.env("GREETER_SESSION_CMD") || "uwsm start hyprland-uwsm.desktop").split(" ").filter(s => s.length > 0)
 
     property string user: Quickshell.env("GREETER_USER") || ""
@@ -116,8 +118,19 @@ ShellRoot {
         }
     }
 
+    // Runs `systemctl reboot|poweroff`. A failure used to vanish silently
+    // (the button just collapsed back), so it is reported on screen.
     Process {
         id: power
+        stderr: StdioCollector {
+            id: powerErr
+        }
+        onExited: (code, status) => {
+            if (code !== 0) {
+                const msg = powerErr.text.trim();
+                root.errorText = msg !== "" ? msg : "Could not run " + root.systemctl + " (exit " + code + ")";
+            }
+        }
     }
 
     Timer {
@@ -129,7 +142,8 @@ ShellRoot {
     function powerAction(kind) {
         if (root.confirming === kind) {
             root.confirming = "";
-            power.command = ["systemctl", kind];
+            root.errorText = "";
+            power.command = [root.systemctl, kind];
             power.running = true;
         } else {
             root.confirming = kind;
