@@ -40,7 +40,6 @@
     "udev.log_level=3"
   ];
   boot.consoleLogLevel = 3;
-  boot.initrd.verbose = false;
 
   # Each host sets its own name; this is only the fallback.
   networking.hostName = lib.mkDefault "nixos";

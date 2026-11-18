@@ -104,6 +104,10 @@ Overlay {
                 required property int index
                 width: ListView.view.width
                 text: modelData.name
+                // An icon name the theme doesn't have gets a generic glyph
+                // (a missing icon would otherwise render as a magenta checkerboard).
+                iconSource: Quickshell.iconPath(modelData.icon, true)
+                icon: iconSource === "" ? "\u{F08C6}" : ""
                 hint: modelData.genericName || ""
                 current: index === ListView.view.currentIndex
                 onActivated: root.launch(index)

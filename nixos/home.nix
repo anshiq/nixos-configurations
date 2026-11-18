@@ -70,8 +70,6 @@ in
     ./desktop/settings-app.nix
     ./desktop/greeter-sync.nix
     ./ytermusic.nix
-    # Android Studio is only packaged for x86_64; other architectures skip it.
-    { home.packages = lib.optionals pkgs.stdenv.hostPlatform.isx86_64 [ pkgs.android-studio ]; }
   ];
 
   home.stateVersion = "26.05";
@@ -136,15 +134,15 @@ in
 
     # Android (FlorisBoard needs compileSdk 36 / NDK 29.0.14206865 - see
     # ~/myprojects/mykeyboard/gradle.properties and gradle/tools.versions.toml).
-    # Android Studio manages its own SDK/NDK/emulator images under
-    # ~/Android/Sdk (its default location, first-run SDK Manager wizard) -
-    # that dir is writable, unlike a nix-store-provided SDK would be, so
-    # Studio can add/update components itself. ANDROID_HOME/PATH below just
-    # point the shell at that same directory so adb/sdkmanager/etc. work from
-    # the CLI too. Prebuilt SDK binaries (adb, aapt2, emulator, NDK
+    # android-tools (below) provides adb/fastboot without any SDK. A full
+    # SDK/NDK lives under ~/Android/Sdk (a writable dir, unlike a
+    # nix-store-provided SDK would be); install it by unzipping
+    # cmdline-tools there and running sdkmanager. ANDROID_HOME/PATH below
+    # just point the shell at that directory so adb/sdkmanager/etc. work
+    # from the CLI too. Prebuilt SDK binaries (aapt2, emulator, NDK
     # toolchain) are unpatched non-Nix ELF binaries; programs.nix-ld
     # (configuration.nix) is what lets them actually run on NixOS.
-    # (android-studio itself is x86_64-only; it is added further down.)
+    android-tools # adb, fastboot, mkbootimg, e2fsdroid, avbtool, etc.
 
     # Node.js
     nodejs_22 # pin a version instead of floating `nodejs`
@@ -212,7 +210,7 @@ in
     JAVA_HOME = "${pkgs.jdk21}/lib/openjdk";
     NPM_CONFIG_PREFIX = "$HOME/.npm-global";
 
-    # Android Studio's default SDK install location. Point CLI tooling
+    # Shared SDK install location (Android Studio's old default). Point CLI tooling
     # (gradlew, adb, sdkmanager) at the same place Studio's SDK Manager
     # installs/updates things, so there's only one SDK on disk.
     ANDROID_HOME = "$HOME/Android/Sdk";
@@ -248,9 +246,9 @@ in
 
     "$HOME/.go/bin"
 
-    # Android SDK CLI tools (installed by Android Studio into $ANDROID_HOME
-    # on first run). cmdline-tools/latest is what `sdkmanager`/`avdmanager`
-    # live in once installed via Studio's SDK Manager -> SDK Tools tab.
+    # Android SDK CLI tools (installed manually into $ANDROID_HOME - unzip
+    # cmdline-tools and run its bin/sdkmanager). cmdline-tools/latest is
+    # where `sdkmanager`/`avdmanager` end up.
     "$HOME/Android/Sdk/platform-tools" # adb, fastboot
     "$HOME/Android/Sdk/emulator"
     "$HOME/Android/Sdk/cmdline-tools/latest/bin" # sdkmanager, avdmanager

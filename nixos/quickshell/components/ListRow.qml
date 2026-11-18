@@ -1,12 +1,14 @@
 import QtQuick
 import qs
 
-// Selectable row for overlay lists: optional glyph, text, optional hint
+// Selectable row for overlay lists: optional glyph or image icon, text, optional hint
 // on the right, optional trailing delete button.
 Rectangle {
     id: root
 
     property string icon: ""
+    // Image URL for a real (themed) icon; shown instead of the glyph above.
+    property string iconSource: ""
     property string text: ""
     property string hint: ""
     property bool current: false
@@ -29,21 +31,37 @@ Rectangle {
         onEntered: root.hoveredRow()
     }
 
-    Text {
-        id: iconText
+    Item {
+        id: iconBox
         anchors.left: parent.left
         anchors.leftMargin: 10
         anchors.verticalCenter: parent.verticalCenter
-        width: root.icon !== "" ? 18 : 0
-        text: root.icon
-        color: root.textColor
-        font.family: Colors.font
-        font.pixelSize: 14
+        width: root.iconSource !== "" ? 22 : root.icon !== "" ? 18 : 0
+        height: 22
+
+        Text {
+            anchors.verticalCenter: parent.verticalCenter
+            visible: root.iconSource === ""
+            text: root.icon
+            color: root.textColor
+            font.family: Colors.font
+            font.pixelSize: 14
+        }
+
+        Image {
+            anchors.fill: parent
+            visible: root.iconSource !== ""
+            source: root.iconSource
+            sourceSize: Qt.size(44, 44)
+            fillMode: Image.PreserveAspectFit
+            asynchronous: true
+            smooth: true
+        }
     }
 
     Text {
-        anchors.left: iconText.right
-        anchors.leftMargin: root.icon !== "" ? 8 : 0
+        anchors.left: iconBox.right
+        anchors.leftMargin: root.icon !== "" || root.iconSource !== "" ? 8 : 0
         anchors.right: hintText.left
         anchors.rightMargin: 8
         anchors.verticalCenter: parent.verticalCenter

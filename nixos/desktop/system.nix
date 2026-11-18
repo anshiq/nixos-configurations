@@ -109,7 +109,6 @@
     networkmanagerapplet
     vscode
     teams-for-linux
-    pgadmin4
     tigervnc
     xinit
 
