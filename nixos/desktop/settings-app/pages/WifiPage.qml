@@ -22,6 +22,11 @@ Page {
     property string ethState: ""
     property var networks: []
     property var savedSsids: []
+    // SSID -> UUID of a saved Wi-Fi profile. Profiles are matched on the SSID
+    // they actually store, not on their name: a profile can be named anything
+    // (renamed, "Foo 1" duplicates, made by another tool) and matching on the
+    // name made saved networks look unknown and ask for the password again.
+    property var savedUuids: ({})
     property var detail: ({})
     property string errorMessage: ""
     property string busyMessage: ""
@@ -72,7 +77,7 @@ Page {
     function refresh() {
         radio.run(["nmcli", "-t", "radio", "wifi"]);
         devs.run(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE", "device"]);
-        saved.run(["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show"]);
+        saved.run(["sh", "-c", 'for u in $(nmcli -t -f UUID,TYPE connection show | sed -n "s/^\\([^:]*\\):802-11-wireless$/\\1/p"); do printf "%s\\t%s\\n" "$u" "$(nmcli -g 802-11-wireless.ssid connection show uuid "$u")"; done']);
         list.run(["nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY,RATE,CHAN", "device", "wifi", "list"]);
         if (wifiDevice !== "")
             info.run(["nmcli", "-t", "-f", "IP4.ADDRESS,IP4.GATEWAY,IP4.DNS", "device", "show", wifiDevice]);
@@ -82,6 +87,10 @@ Page {
         scan.run(["nmcli", "device", "wifi", "rescan"]);
     }
 
+    function firstUuid(ssid) {
+        return (page.savedUuids[ssid] || "").split(" ")[0];
+    }
+
     function connectTo(ssid, password, known, hidden) {
         page.errorMessage = "";
         page.busyMessage = `Connecting to ${ssid}…`;
@@ -89,13 +98,16 @@ Page {
         page.attemptSsid = ssid;
         page.attemptWasNew = !known;
         let args;
-        if (password && password.length > 0) {
+        if (password && password.length > 0 && known) {
+            // Saved profile whose key is missing/wrong: fix it in place.
+            args = ["sh", "-c", 'nmcli connection modify uuid "$1" wifi-sec.psk "$2" && nmcli connection up uuid "$1"', "sh", page.firstUuid(ssid), password];
+        } else if (password && password.length > 0) {
             // Creates the profile on first use and reuses it afterwards.
             args = ["nmcli", "device", "wifi", "connect", ssid, "password", password];
             if (hidden)
                 args = args.concat(["hidden", "yes"]);
         } else if (known) {
-            args = ["nmcli", "connection", "up", "id", ssid];
+            args = ["nmcli", "connection", "up", "uuid", page.firstUuid(ssid)];
         } else {
             args = ["nmcli", "device", "wifi", "connect", ssid];
         }
@@ -116,7 +128,7 @@ Page {
     function forget(ssid) {
         page.errorMessage = "";
         page.busyMessage = `Forgetting ${ssid}…`;
-        act.run(["nmcli", "connection", "delete", "id", ssid]);
+        act.run(["sh", "-c", 'for u in "$@"; do nmcli connection delete uuid "$u"; done', "sh"].concat(page.savedUuids[ssid] ? page.savedUuids[ssid].split(" ") : []));
         page.attemptSsid = "";
     }
 
@@ -171,12 +183,26 @@ Page {
         id: saved
         onFinished: (code, out) => {
             const names = [];
+            const map = {};
             for (const l of out.split("\n")) {
-                const f = page.splitTerse(l);
-                if (f[0] && f[1] && f[1].indexOf("wireless") !== -1)
-                    names.push(f[0]);
+                const i = l.indexOf("\t");
+                if (i <= 0)
+                    continue;
+                const uuid = l.slice(0, i);
+                const ssid = l.slice(i + 1).replace(/\\([:\\])/g, "$1");
+                if (!ssid)
+                    continue;
+                // Several profiles can share one SSID; keep them all so
+                // Forget removes every one, and use the first to connect.
+                if (map[ssid] === undefined) {
+                    map[ssid] = uuid;
+                    names.push(ssid);
+                } else {
+                    map[ssid] += " " + uuid;
+                }
             }
             page.savedSsids = names;
+            page.savedUuids = map;
         }
     }
 
@@ -264,6 +290,10 @@ Page {
                 page.errorMessage = "";
             } else {
                 page.errorMessage = page.friendlyError(err || out);
+                // A saved profile that has no usable key: ask for it once and
+                // store it, instead of leaving the user stuck.
+                if (!page.attemptWasNew && /secrets were required|\(7\)/i.test(err || out))
+                    page.passwordFor = page.attemptSsid;
                 // A failed first attempt leaves a half-made profile behind
                 // (saved with the wrong password); remove it so the network
                 // is offered a fresh password prompt next time.
@@ -494,13 +524,13 @@ Page {
                         password: true
                         placeholder: `Password for ${net.modelData.ssid}`
                         onAccepted: if (text.length > 0)
-                            page.connectTo(net.modelData.ssid, text, false, false)
+                            page.connectTo(net.modelData.ssid, text, net.known, false)
                     }
                     Btn {
                         text: "Connect"
                         kind: "primary"
                         enabled: pw.text.length > 0 && !page.working
-                        onClicked: page.connectTo(net.modelData.ssid, pw.text, false, false)
+                        onClicked: page.connectTo(net.modelData.ssid, pw.text, net.known, false)
                     }
                     Btn {
                         text: "Cancel"
