@@ -6,7 +6,11 @@
 // `hyprpicker`, `ocr`, `pin`, `screen-record`), so this page and the keybinds
 // behave alike. Screenshot, colour picker and the OCR tools hide this window
 // first so it is not in the shot, and bring it back when the tool exits. Recording state is followed
-// through screen-record's pidfile (inotify, no polling).
+// through screen-record's pidfile and countdown file (inotify, no polling).
+// The recording options (audio, monitor, countdown) are screen-record's own
+// settings (`screen-record settings get --json | set KEY VALUE`, stored in
+// ~/.local/state/desktop/screen-record.json), so the bar button and the
+// keybinds record the same way as the buttons here.
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
@@ -26,6 +30,13 @@ Page {
     readonly property string recordingsDir: home + "/Videos/Recordings"
 
     property bool recording: false
+    property bool countdown: false
+    // screen-record settings; settingsOk = false while unknown or unavailable.
+    property bool settingsOk: false
+    property string audioMode: "mic"
+    property string outputMode: "focused"
+    property int delaySec: 0
+    property var monitors: [] // connected monitor names, from hyprctl
     property string recordFile: ""
     property string pickedColor: ""
     property string errorMessage: ""
@@ -66,6 +77,74 @@ Page {
     function refreshStatus() {
         statusCmd.run(["screen-record", "status", "--json"]);
     }
+
+    function refreshSettings() {
+        settingsGet.run(["screen-record", "settings", "get", "--json"]);
+    }
+
+    function setSetting(key, value) {
+        page.errorMessage = "";
+        settingsSet.run(["screen-record", "settings", "set", key, String(value)]);
+    }
+
+    readonly property var audioOptions: [
+        {
+            value: "none",
+            label: "None"
+        },
+        {
+            value: "mic",
+            label: "Mic"
+        },
+        {
+            value: "system",
+            label: "System"
+        },
+        {
+            value: "both",
+            label: "Mic + System"
+        }
+    ]
+    readonly property var delayOptions: [
+        {
+            value: "0",
+            label: "Off"
+        },
+        {
+            value: "3",
+            label: "3 s"
+        },
+        {
+            value: "5",
+            label: "5 s"
+        },
+        {
+            value: "10",
+            label: "10 s"
+        }
+    ]
+    // "Focused" plus every connected monitor; a saved monitor that is not
+    // connected stays listed so the choice is visible.
+    readonly property var outputOptions: {
+        const names = page.monitors.slice();
+        if (page.outputMode !== "focused" && names.indexOf(page.outputMode) < 0)
+            names.push(page.outputMode);
+        return [
+            {
+                value: "focused",
+                label: "Focused"
+            }
+        ].concat(names.map(n => ({
+                    value: n,
+                    label: n
+                })));
+    }
+    readonly property string audioSummary: ({
+            none: "off",
+            mic: "microphone",
+            system: "system sound",
+            both: "mic + system"
+        })[page.audioMode] || ""
 
     Timer {
         id: hideDelay
@@ -122,19 +201,62 @@ Page {
             try {
                 const s = JSON.parse(out);
                 page.recording = !!s.recording;
+                page.countdown = !!s.countdown;
                 page.recordFile = s.file || "";
             } catch (e) {
                 page.recording = false;
+                page.countdown = false;
             }
         }
     }
+
+    Cmd {
+        id: settingsGet
+        onFinished: (code, out, err) => {
+            if (code !== 0) {
+                page.settingsOk = false;
+                return;
+            }
+            try {
+                const s = JSON.parse(out);
+                page.audioMode = s.audio || "mic";
+                page.outputMode = s.output || "focused";
+                page.delaySec = s.delay || 0;
+                page.settingsOk = true;
+            } catch (e) {
+                page.settingsOk = false;
+            }
+        }
+    }
+    Cmd {
+        id: settingsSet
+        onFinished: (code, out, err) => {
+            if (code !== 0)
+                page.fail("Saving the recording settings", code, err);
+            page.refreshSettings();
+        }
+    }
+
+    // Connected monitors, read once when the page opens.
+    Cmd {
+        id: monitorsCmd
+        onFinished: (code, out, err) => {
+            try {
+                page.monitors = code === 0 ? JSON.parse(out).map(m => m.name) : [];
+            } catch (e) {
+                page.monitors = [];
+            }
+        }
+    }
+    Component.onCompleted: monitorsCmd.run(["hyprctl", "monitors", "-j"])
 
     // Separate start/stop commands: stopping must work even if `start`
     // has not returned yet.
     Cmd {
         id: startCmd
         onFinished: (code, out, err) => {
-            if (code !== 0)
+            // 143 = SIGTERM: the countdown was cancelled (screen-record stop).
+            if (code !== 0 && code !== 143)
                 page.fail("Screen recording", code, err);
             page.refreshStatus();
         }
@@ -158,6 +280,24 @@ Page {
         onFileChanged: reload()
         onLoaded: page.refreshStatus()
         onLoadFailed: page.refreshStatus()
+    }
+    // Present only while a countdown is running.
+    FileView {
+        path: `${page.runtimeDir}/screen-record.countdown`
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: page.refreshStatus()
+        onLoadFailed: page.refreshStatus()
+    }
+    // The settings file; also changed by `screen-record settings set` elsewhere.
+    FileView {
+        path: `${page.home}/.local/state/desktop/screen-record.json`
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: page.refreshSettings()
+        onLoadFailed: page.refreshSettings()
     }
 
     Banner {
@@ -262,8 +402,14 @@ Page {
             first: true
             icon: page.recording ? Icons.stop : Icons.record
             iconColor: page.recording ? Theme.danger : Theme.foreground
-            title: page.recording ? "Recording" : "Not recording"
-            subtitle: page.recording ? (page.recordFile !== "" ? `Saving to ${page.baseName(page.recordFile)}. Keeps going if you close this window.` : "Keeps going if you close this window.") : "Full screen or a selected region, saved to ~/Videos/Recordings. GIF records a region and copies the GIF when you stop."
+            title: page.recording ? "Recording" : (page.countdown ? "Starting…" : "Not recording")
+            subtitle: {
+                if (page.recording)
+                    return page.recordFile !== "" ? `Saving to ${page.baseName(page.recordFile)}. Keeps going if you close this window.` : "Keeps going if you close this window.";
+                if (page.countdown)
+                    return "The countdown is running. Cancel stops it before anything is recorded.";
+                return `Audio: ${page.audioSummary}. Saved to ~/Videos/Recordings; GIFs are silent and get copied.`;
+            }
             Badge {
                 visible: page.recording
                 text: "REC"
@@ -281,7 +427,18 @@ Page {
                 }
             }
             Btn {
-                visible: !page.recording
+                visible: page.countdown && !page.recording
+                text: "Cancel"
+                icon: Icons.close
+                kind: "danger"
+                busy: stopCmd.running
+                onClicked: {
+                    page.errorMessage = "";
+                    stopCmd.run(["screen-record", "stop"]);
+                }
+            }
+            Btn {
+                visible: !page.recording && !page.countdown
                 text: "Region"
                 icon: Icons.selection
                 busy: startCmd.running
@@ -291,7 +448,7 @@ Page {
                 }
             }
             Btn {
-                visible: !page.recording
+                visible: !page.recording && !page.countdown
                 text: "GIF"
                 icon: Icons.selection
                 busy: startCmd.running
@@ -301,7 +458,7 @@ Page {
                 }
             }
             Btn {
-                visible: !page.recording
+                visible: !page.recording && !page.countdown
                 text: "Full screen"
                 icon: Icons.record
                 kind: "primary"
@@ -310,6 +467,50 @@ Page {
                     page.errorMessage = "";
                     startCmd.run(["screen-record", "start"]);
                 }
+            }
+        }
+        SettingRow {
+            visible: page.settingsOk
+            icon: page.audioMode === "none" ? Icons.microphoneOff : Icons.microphone
+            title: "Audio"
+            subtitle: {
+                if (page.audioMode === "both")
+                    return "Microphone and speaker sound in one track.";
+                if (page.audioMode === "system")
+                    return "What your speakers or headphones play.";
+                if (page.audioMode === "mic")
+                    return "Default microphone (set on the Sound page).";
+                return "Recordings are silent.";
+            }
+            Segmented {
+                options: page.audioOptions
+                current: page.audioMode
+                busy: settingsSet.running
+                onPicked: value => page.setSetting("audio", value)
+            }
+        }
+        SettingRow {
+            visible: page.settingsOk
+            icon: Icons.display
+            title: "Monitor"
+            subtitle: page.outputMode === "focused" ? "Full screen records the monitor you are on." : (page.monitors.indexOf(page.outputMode) >= 0 ? `Full screen always records ${page.outputMode}.` : `${page.outputMode} is not connected; the focused monitor is recorded instead.`)
+            Segmented {
+                options: page.outputOptions
+                current: page.outputMode
+                busy: settingsSet.running
+                onPicked: value => page.setSetting("output", value)
+            }
+        }
+        SettingRow {
+            visible: page.settingsOk
+            icon: Icons.timer
+            title: "Countdown"
+            subtitle: page.delaySec > 0 ? `Waits ${page.delaySec} s after you start or pick a region.` : "Recording starts right away."
+            Segmented {
+                options: page.delayOptions
+                current: String(page.delaySec)
+                busy: settingsSet.running
+                onPicked: value => page.setSetting("delay", value)
             }
         }
         SettingRow {

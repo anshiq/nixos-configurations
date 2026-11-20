@@ -128,6 +128,8 @@ rec {
       pkgs.gnugrep
       pkgs.ffmpeg-headless # --gif conversion
       pkgs.wl-clipboard
+      pkgs.hyprland # hyprctl: which monitor is focused
+      pkgs.pulseaudio # pactl: default devices, mic + system mix
     ];
   };
 

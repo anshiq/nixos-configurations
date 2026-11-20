@@ -66,7 +66,7 @@ theme-switch [<name>|toggle|next]     # no arg = scheduled theme
 theme-status [--json]
 bluelight status [--json] | toggle | on | off | set <kelvin> | adjust <+N|-N>
 screenshot                            # freeze, drag a region, annotate in satty
-screen-record toggle|start [--region] [--gif] | stop | status [--json]
+screen-record toggle|start [--region] [--gif] [--audio none|mic|system|both] [--output NAME] [--delay S] | stop | status [--json] | settings get|set
 ocr [--qr | --text] [--translate [LANG]] [--lang LANGS] [--file F | --stdin]   # copy text/QR from a screen region
 pin [--clipboard]                     # float a screen region / the clipboard image on top
 dnd [status [--json] | toggle | on | off]   # do not disturb (notification popups)

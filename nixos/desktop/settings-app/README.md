@@ -61,7 +61,11 @@ Hyprland rule) needs `nixos-rebuild switch`.
 - **Capture** - `screenshot` and `hyprpicker -a` (the window hides while they
   run), `screen-record start [--region] | stop | status --json`, recordings in
   `~/Videos/Recordings`. Recording state follows
-  `$XDG_RUNTIME_DIR/screen-record.pid` (inotify, no polling). Lists the
+  `$XDG_RUNTIME_DIR/screen-record.pid` and `screen-record.countdown` (inotify,
+  no polling). Recording options (audio none / mic / system / mic + system,
+  monitor, countdown) are screen-record's own settings (`screen-record settings
+  get --json | set KEY VALUE`, `~/.local/state/desktop/screen-record.json`), so
+  the bar button and keybinds use them too. Lists the
   PRINT / SUPER+PRINT / SUPER+SHIFT+PRINT keybinds.
 - **Appearance** - themes from `~/.config/desktop/themes/*.json`, the active one
   from `theme-status --json` (re-read when `~/.local/state/desktop/theme`
