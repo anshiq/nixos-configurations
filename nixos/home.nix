@@ -70,6 +70,8 @@ in
     ./desktop/settings-app.nix
     ./desktop/greeter-sync.nix
     ./ytermusic.nix
+    ./ai/mcp.nix # one MCP server list for Claude Code, Codex, opencode
+    ./ai/craft # ArtCraft apps: GUIs, CLIs, *-live launchers (versions in ai/craft/apps.nix)
     ./ai/claude # personal Claude Code skills, live-linked into ~/.claude/skills
   ];
 
@@ -144,6 +146,11 @@ in
     # toolchain) are unpatched non-Nix ELF binaries; programs.nix-ld
     # (configuration.nix) is what lets them actually run on NixOS.
     android-tools # adb, fastboot, mkbootimg, e2fsdroid, avbtool, etc.
+
+    # Video tutorial pipeline (~/nodejs-tutorial-video)
+    ffmpeg # encode / composite / mux
+    vhs # scripted terminal recordings (.tape -> mp4); bundles ttyd
+    piper-tts # local neural text-to-speech for voiceover
 
     # Node.js
     nodejs_22 # pin a version instead of floating `nodejs`
