@@ -182,6 +182,10 @@ in
     # awscli
     awscli2
 
+    # Infrastructure as code. Terraform is BSL-licensed (unfree in nixpkgs;
+    # nixpkgs.config.allowUnfree is on in configuration.nix).
+    terraform
+
     ueberzugpp
     hugo
   ];
@@ -702,6 +706,5 @@ in
   # Opener for non-text files (see yazi/open.sh): portal-less xdg-open that
   # keeps focus on the terminal. Executable through the link: the file is
   # mode 755 in git.
-  xdg.configFile."yazi/open.sh".source =
-    config.lib.file.mkOutOfStoreSymlink /etc/nixos/yazi/open.sh;
+  xdg.configFile."yazi/open.sh".source = config.lib.file.mkOutOfStoreSymlink /etc/nixos/yazi/open.sh;
 }
