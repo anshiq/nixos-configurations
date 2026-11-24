@@ -1,15 +1,16 @@
 # App Config Rotator
 
-Companion config for the Quickshell bar plugin at
-`../quickshell/plugins/user.appcredrotator/`. Lets you switch an app between
-alternate configs/credentials (Git work vs. personal, Helix config.toml +
-languages.toml, an auth token per account, ...) from the bar.
+Config for the settings app's Credentials page
+(`../desktop/settings-app/pages/CredentialsPage.qml`, `settings-app
+credentials`), which replaced the old Quickshell bar plugin. Lets you switch
+an app between alternate configs/credentials (Git work vs. personal, Helix
+config.toml + languages.toml, an auth token per account, ...).
 
 Everything - reading this file, checking which source is active, copying a
-source onto its destination - is done by the plugin itself in QML/JS via
-Quickshell's `FileView` (see `Panel.qml`'s module comment for the full
-design). There is no helper process of any kind; `apps.json` is plain JSON
-specifically so the plugin can read it with `JSON.parse()`.
+source onto its destination - is done by the page itself in QML/JS via
+Quickshell's `FileView` (see `CredentialsPage.qml`'s header comment for the
+full design). There is no helper process of any kind; `apps.json` is plain
+JSON specifically so the page can read it with `JSON.parse()`.
 
 ## Schema
 
@@ -49,7 +50,7 @@ destination has a list of source files to switch between.
 Switching `path` to a given `paths` entry **copies** that source's content
 onto `path` (not a symlink - QML/Quickshell has no symlink primitive, and
 shelling out to `ln`/`readlink` for just that would defeat the point of
-having no subprocess at all). A small `state.json` next to this file
+having no subprocess at all). A small `state.json` in `~/.local/share/appcredrotator/`
 (runtime-only, paths only, no secrets, never committed) records which
 source each destination is currently set to, which gives switching two
 properties a plain "last one wins" copy wouldn't:
@@ -97,5 +98,11 @@ source for each, then "Apply all" (or Apply per row) to commit the swap.
 }
 ```
 
-Edit `apps.json` in this repo and `nixos-rebuild switch` to change the
-panel's contents declaratively.
+Note that `~/.config/helix/config.toml` and `languages.toml` are themselves
+live links into this repo (`../helix/`), so switching them writes the chosen
+profile into `../helix/*.toml` and shows up in `git diff`.
+
+`~/.local/share/appcredrotator/apps.json` is a live link to `apps.json` in
+this repo: edit it here and the page picks it up on its next open, no
+rebuild needed. Only a first-time setup on a new machine needs a rebuild
+(to create the link).

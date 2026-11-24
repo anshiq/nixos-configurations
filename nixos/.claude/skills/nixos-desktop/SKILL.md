@@ -20,8 +20,12 @@ is mostly build output.
 **Given a customization request, first decide:** does it touch something
 Nix-generated (theme colors, ghostty/kitty/helix/yazi/lazygit theme files,
 hyprlock, systemd units, desktop commands) - edit the Nix source and rebuild -
-or something deployed live and hot-reloading (`hypr/hyprland.lua`,
-`quickshell/` QML) - edit the file in the checkout, no rebuild needed.
+or something deployed as a live link into the checkout (`hypr/hyprland.lua`,
+`quickshell/` QML, `helix/config.toml` + `languages.toml`, `yazi/*.toml` +
+`open.sh`, `desktop/mimeapps.list`, `desktop/gtk-bookmarks`, `thunar/` custom
+actions + shortcuts) - edit the file in the checkout, no rebuild needed. Apps
+writing those files (Thunar's sidebar and custom actions, "set as default")
+change the checkout too: check `git diff`.
 Editing a generated file under `~/.config/` by hand does nothing permanent.
 
 ## Topic Guides

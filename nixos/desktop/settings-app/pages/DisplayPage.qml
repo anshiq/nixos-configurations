@@ -3,8 +3,8 @@
 // Night light goes through the `bluelight` command, the same one the bar and
 // the theme switcher use, so all of them stay in agreement. Monitors are
 // read-only: layout/scale/refresh live in
-// hypr/hyprland.lua (Nix-deployed), so a live change here would not survive a
-// reload and is better edited at the source.
+// hypr/hyprland.lua (hl.monitor), so a live change here would not survive a
+// reload and is better edited at the source (a live link: no rebuild needed).
 import QtQuick
 import QtQuick.Layouts
 import Quickshell

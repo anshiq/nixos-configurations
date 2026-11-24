@@ -70,6 +70,7 @@ in
     ./desktop/settings-app.nix
     ./desktop/greeter-sync.nix
     ./ytermusic.nix
+    ./ai/claude # personal Claude Code skills, live-linked into ~/.claude/skills
   ];
 
   home.stateVersion = "26.05";
@@ -178,11 +179,15 @@ in
     hugo
   ];
 
-  # Package only; config.toml/languages.toml are deployed verbatim below and
-  # the theme file is a symlink theme-switch flips (helix/themes/current.toml).
+  # Package only; config.toml/languages.toml are live links into the checkout
+  # (edits - including `:config-open` in Helix - land in ./helix/ and apply on
+  # `:config-reload`, no rebuild). The theme file is a symlink theme-switch
+  # flips (helix/themes/current.toml).
   programs.helix.enable = true;
-  xdg.configFile."helix/config.toml".source = ./helix/config.toml;
-  xdg.configFile."helix/languages.toml".source = ./helix/languages.toml;
+  xdg.configFile."helix/config.toml".source =
+    config.lib.file.mkOutOfStoreSymlink /etc/nixos/helix/config.toml;
+  xdg.configFile."helix/languages.toml".source =
+    config.lib.file.mkOutOfStoreSymlink /etc/nixos/helix/languages.toml;
 
   xdg.configFile."opencode/AGENTS.md".source =
     config.lib.file.mkOutOfStoreSymlink /etc/nixos/.claude/CLAUDE.md;
@@ -660,10 +665,9 @@ in
   ############################################################
   ## Yazi - terminal file manager
   ############################################################
-  # settings/keymap/theme are imported from plain TOML files kept
-  # alongside this config (./yazi/*.toml), per the pattern documented
-  # on the NixOS wiki - this keeps the TOML portable/readable on its
-  # own while still letting Nix manage placement + packages/plugins.
+  # yazi.toml/keymap.toml/open.sh are live links into the checkout
+  # (./yazi/), deployed byte for byte - edits apply on yazi's next start,
+  # no rebuild. Nix only manages the package and plugins here.
   #
   # Plugin deps from your old package.toml:
   #   yazi-rs/plugins:git            -> pkgs.yaziPlugins.git (packaged upstream)
@@ -674,9 +678,8 @@ in
     enable = true;
     enableFishIntegration = false; # you use the custom `y` function above instead
 
-    settings = lib.importTOML ./yazi/yazi.toml;
-    keymap = lib.importTOML ./yazi/keymap.toml;
-    # theme.toml is not set here: it is a symlink theme-switch flips between
+    # settings/keymap are not set here: yazi.toml and keymap.toml are the
+    # live links below. theme.toml is a symlink theme-switch flips between
     # the per-theme variants generated in desktop/home.nix.
 
     plugins = {
@@ -685,10 +688,13 @@ in
     };
   };
 
+  xdg.configFile."yazi/yazi.toml".source =
+    config.lib.file.mkOutOfStoreSymlink /etc/nixos/yazi/yazi.toml;
+  xdg.configFile."yazi/keymap.toml".source =
+    config.lib.file.mkOutOfStoreSymlink /etc/nixos/yazi/keymap.toml;
   # Opener for non-text files (see yazi/open.sh): portal-less xdg-open that
-  # keeps focus on the terminal.
-  xdg.configFile."yazi/open.sh" = {
-    source = ./yazi/open.sh;
-    executable = true;
-  };
+  # keeps focus on the terminal. Executable through the link: the file is
+  # mode 755 in git.
+  xdg.configFile."yazi/open.sh".source =
+    config.lib.file.mkOutOfStoreSymlink /etc/nixos/yazi/open.sh;
 }

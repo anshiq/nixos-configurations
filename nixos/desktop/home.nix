@@ -141,7 +141,7 @@ in
     ])
     ++ (with pkgs; [
       # File-manager helpers: Thunar's "Open Terminal Here" custom action
-      # (~/.config/Thunar/uca.xml) runs `exo-open`; the archive plugin's
+      # (../thunar/uca.xml, linked as ~/.config/Thunar) runs `exo-open`; the archive plugin's
       # Create/Extract entries need an archiver; GLib launches terminal-only
       # apps (Helix, yazi) through xdg-terminal-exec.
       xfce4-exo # Thunar's exo-open helper (was pkgs.xfce.exo, moved to top-level)
@@ -180,9 +180,12 @@ in
   };
 
   xdg.configFile = {
-    # Hyprland >= 0.55 is configured in Lua, deployed verbatim. The system
-    # module (desktop/system.nix) installs Hyprland; UWSM runs the session.
-    "hypr/hyprland.lua".source = ../hypr/hyprland.lua;
+    # Hyprland >= 0.55 is configured in Lua. A live link into the checkout,
+    # like quickshell/ below: a save in ../hypr/hyprland.lua applies without
+    # a rebuild (auto-reload, or `hyprctl reload`) - and so does a broken
+    # one. The system module (desktop/system.nix) installs Hyprland; UWSM
+    # runs the session.
+    "hypr/hyprland.lua".source = config.lib.file.mkOutOfStoreSymlink "/etc/nixos/hypr/hyprland.lua";
 
     # An out-of-store symlink into the checkout so Quickshell's live reload
     # picks up QML edits without a rebuild. It must be declared here: a
@@ -201,6 +204,25 @@ in
     # desktop entry under "xdg.dataFile"/"xdg.desktopEntries" below).
     "xfce4/helpers.rc".text = "TerminalEmulator=float-terminal\n";
     "xdg-terminals.list".text = "float-terminal.desktop\n";
+
+    # Default applications: ./mimeapps.list, a live link (not xdg.mimeApps,
+    # which would make the file read-only). "Set as default" in Chrome,
+    # `xdg-mime default`, `gio mime` and Thunar's Open With all write through
+    # the link into the checkout, so their changes show up in `git diff`;
+    # edit the file directly to change defaults.
+    "mimeapps.list".source = config.lib.file.mkOutOfStoreSymlink "/etc/nixos/desktop/mimeapps.list";
+
+    # Thunar/GTK sidebar bookmarks: ./gtk-bookmarks, a live link. Folders
+    # dragged into (or removed from) the sidebar are written through the link
+    # into the checkout. Format: one "<uri> [label]" per line.
+    "gtk-3.0/bookmarks".source = config.lib.file.mkOutOfStoreSymlink "/etc/nixos/desktop/gtk-bookmarks";
+
+    # Thunar's own config folder (custom actions uca.xml, shortcuts
+    # accels.scm): a live link to ../thunar/. The whole folder, not single
+    # files: Thunar saves uca.xml by renaming a temp file over it, which would
+    # replace a per-file link; inside a linked folder the rename lands in the
+    # checkout. Edit > Configure custom actions changes show up in `git diff`.
+    "Thunar".source = config.lib.file.mkOutOfStoreSymlink "/etc/nixos/thunar";
   }
   # Per-theme variants. The active ghostty/config, kitty/kitty.conf,
   # hypr/colors.lua, helix/themes/current.toml, yazi/theme.toml and
@@ -549,40 +571,11 @@ in
     settings.Keywords = "task;manager;process;cpu;memory;monitor;tmog;";
   };
 
-  xdg.mimeApps = {
-    enable = true;
-    defaultApplications = {
-      # Archives open in file-roller (also what Thunar's archive plugin drives).
-      "application/zip" = "org.gnome.FileRoller.desktop";
-      "application/x-tar" = "org.gnome.FileRoller.desktop";
-      "application/x-compressed-tar" = "org.gnome.FileRoller.desktop";
-      "application/x-bzip-compressed-tar" = "org.gnome.FileRoller.desktop";
-      "application/x-xz-compressed-tar" = "org.gnome.FileRoller.desktop";
-      "application/gzip" = "org.gnome.FileRoller.desktop";
-      "application/x-7z-compressed" = "org.gnome.FileRoller.desktop";
-      "text/html" = "google-chrome.desktop";
-      "x-scheme-handler/http" = "google-chrome.desktop";
-      "x-scheme-handler/https" = "google-chrome.desktop";
-      "video/mp4" = "mpv.desktop";
-      "video/x-matroska" = "mpv.desktop";
-      "video/webm" = "mpv.desktop";
-      "video/x-msvideo" = "mpv.desktop";
-      "video/quicktime" = "mpv.desktop";
-      "audio/mpeg" = "mpv.desktop";
-      "audio/flac" = "mpv.desktop";
-      "audio/x-wav" = "mpv.desktop";
-      "audio/ogg" = "mpv.desktop";
-      "application/pdf" = "org.pwmt.zathura.desktop";
-      "image/png" = "org.gnome.Loupe.desktop";
-      "image/jpeg" = "org.gnome.Loupe.desktop";
-      "image/gif" = "org.gnome.Loupe.desktop";
-      "image/webp" = "org.gnome.Loupe.desktop";
-      "image/svg+xml" = "org.gnome.Loupe.desktop";
-      "image/bmp" = "org.gnome.Loupe.desktop";
-      "image/avif" = "org.gnome.Loupe.desktop";
-      "application/x-keepass2" = "org.keepassxc.KeePassXC.desktop";
-    };
-  };
+  # Default applications: ./mimeapps.list, a live link (see "mimeapps.list"
+  # under xdg.configFile above). The legacy ~/.local/share/applications/ copy
+  # home-manager used to write points at the same file.
+  xdg.dataFile."applications/mimeapps.list".source =
+    config.lib.file.mkOutOfStoreSymlink "/etc/nixos/desktop/mimeapps.list";
 
   gtk = {
     enable = true;
@@ -622,20 +615,7 @@ in
       @define-color visited_link_color #999999;
     '';
 
-    # Thunar's sidebar "Places" list (~/.config/gtk-3.0/bookmarks). Declared
-    # here, so folders dragged into the sidebar in Thunar don't persist -
-    # add them to this list instead. Format: "<uri> [label]".
-    gtk3.bookmarks =
-      let
-        home = "file://${config.home.homeDirectory}";
-      in
-      [
-        "${home}/Downloads"
-        "${home}/Pictures"
-        "${home}/Videos"
-        "${home}/Desktop"
-        "${home}/Shared"
-        "file:///etc/nixos NixOS Config"
-      ];
+    # Thunar's sidebar "Places" list is not set here (gtk3.bookmarks would
+    # make it read-only): see "gtk-3.0/bookmarks" under xdg.configFile above.
   };
 }

@@ -1,0 +1,852 @@
+#!/usr/bin/env python3
+"""devinfra — Shared Local Docker Infrastructure Manager (stdlib only).
+
+Idempotent helper for the devinfra skill. No third-party dependencies.
+Registry: SQLite at $DEVINFRA_REGISTRY or $XDG_DATA_HOME/devinfra/registry.db.
+Never stores passwords. All destructive actions support --dry-run.
+"""
+import argparse
+import datetime
+from datetime import timezone
+import fcntl
+import json
+import os
+import re
+import secrets
+import sqlite3
+import subprocess
+import sys
+from contextlib import contextmanager
+
+VERSION = "1.0.0"
+SHARED_NETWORK = "dev-services"
+
+CATALOG = {
+    "postgres": {
+        "type": "postgres",
+        "default_version": "17",
+        "image_template": "postgres:{v}-alpine",
+        "port": 5432,
+        "data_path": "/var/lib/postgresql/data",
+        "health_cmd": ["pg_isready", "-U", "postgres"],
+        "default_scope": "shared-if-compatible",
+    },
+    "redis": {
+        "type": "redis",
+        "default_version": "7",
+        "image_template": "redis:{v}-alpine",
+        "port": 6379,
+        "health_cmd": ["redis-cli", "ping"],
+        "default_scope": "shared-if-compatible",
+    },
+    "mongodb": {
+        "type": "mongodb",
+        "default_version": "7",
+        "image_template": "mongo:{v}",
+        "port": 27017,
+        "health_cmd": ["mongosh", "--quiet", "--eval", "db.runCommand({ping:1})"],
+        "default_scope": "shared-if-compatible",
+    },
+    "rabbitmq": {
+        "type": "rabbitmq",
+        "default_version": "3",
+        "image_template": "rabbitmq:{v}-management-alpine",
+        "port": 5672,
+        "default_scope": "project-scoped",
+    },
+    "localstack": {
+        "type": "localstack",
+        "default_version": "3",
+        "image_template": "localstack/localstack:{v}",
+        "port": 4566,
+        "default_scope": "shared-if-compatible",
+    },
+    "elasticsearch": {
+        "type": "elasticsearch",
+        "default_version": "8",
+        "image_template": "docker.elastic.co/elasticsearch/elasticsearch:{v}",
+        "port": 9200,
+        "default_scope": "project-scoped",
+    },
+}
+
+VALID_SCOPES = ("shared", "shared-if-compatible", "project-scoped", "ephemeral", "dedicated")
+
+
+def utcnow_iso():
+    return datetime.datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def eprint(*a):
+    print(*a, file=sys.stderr)
+
+
+def registry_path():
+    env = os.environ.get("DEVINFRA_REGISTRY")
+    if env:
+        return env
+    xdg = os.environ.get("XDG_DATA_HOME") or os.path.join(os.path.expanduser("~"), ".local", "share")
+    return os.path.join(xdg, "devinfra", "registry.db")
+
+
+def connect():
+    path = registry_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    conn = sqlite3.connect(path)
+    conn.row_factory = sqlite3.Row
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS services (
+          name TEXT PRIMARY KEY, container_id TEXT, container_name TEXT,
+          image TEXT, version TEXT, digest TEXT, service_type TEXT,
+          scope TEXT, network TEXT, ports TEXT, volumes TEXT,
+          status TEXT, last_verified TEXT, unmanaged INTEGER DEFAULT 0)"""
+    )
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS dependencies (
+          id INTEGER PRIMARY KEY AUTOINCREMENT, service TEXT, project TEXT,
+          db_name TEXT, db_user TEXT, namespace TEXT, created_at TEXT,
+          UNIQUE(service, project, db_name))"""
+    )
+    conn.commit()
+    return conn
+
+
+@contextmanager
+def locked():
+    """Serialize provisioning writers across processes (no duplicate containers)."""
+    path = registry_path() + ".lock"
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as fh:
+        try:
+            fcntl.flock(fh, fcntl.LOCK_EX)
+        except Exception:
+            pass
+        yield
+
+
+# ---------------- docker layer (single seam for tests to fake) ----------------
+
+def run_docker(args, check=False, capture=True):
+    """Run a docker CLI command. Returns CompletedProcess. Central seam for tests."""
+    try:
+        return subprocess.run(["docker"] + args, capture_output=capture, text=True)
+    except FileNotFoundError:
+        eprint("error: docker CLI not found")
+        sys.exit(2)
+
+
+def docker_daemon_ok():
+    p = run_docker(["info", "--format", "{{.ServerVersion}}"])
+    return p.returncode == 0
+
+
+def docker_ps(all_containers=True):
+    args = ["ps"]
+    if all_containers:
+        args.append("-a")
+    args += ["--format", "{{json .}}"]
+    p = run_docker(args)
+    if p.returncode != 0:
+        return []
+    out = []
+    for line in p.stdout.strip().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            out.append(json.loads(line))
+        except json.JSONDecodeError:
+            pass
+    return out
+
+
+def docker_images():
+    p = run_docker(["images", "--format", "{{json .}}"])
+    if p.returncode != 0:
+        return []
+    out = []
+    for line in p.stdout.strip().splitlines():
+        if line.strip():
+            try:
+                out.append(json.loads(line))
+            except json.JSONDecodeError:
+                pass
+    return out
+
+
+def docker_inspect(container):
+    p = run_docker(["inspect", container])
+    if p.returncode != 0:
+        return None
+    try:
+        data = json.loads(p.stdout)
+        return data[0] if data else None
+    except (json.JSONDecodeError, IndexError):
+        return None
+
+
+def docker_network_exists(name):
+    p = run_docker(["network", "inspect", name])
+    return p.returncode == 0
+
+
+def ensure_shared_network(dry_run=False):
+    if docker_network_exists(SHARED_NETWORK):
+        return True
+    if dry_run:
+        print(f"would create network {SHARED_NETWORK}")
+        return True
+    p = run_docker(["network", "create", SHARED_NETWORK])
+    return p.returncode == 0
+
+
+# ---------------- helpers ----------------
+
+def major_of(version):
+    m = re.search(r"(\d+)", str(version or ""))
+    return m.group(1) if m else ""
+
+
+def image_for(service, version):
+    spec = CATALOG[service]
+    v = version or spec["default_version"]
+    return spec["image_template"].format(v=v)
+
+
+def versions_compatible(requested, actual):
+    """Major versions must match. Empty requested matches anything."""
+    if not requested:
+        return True
+    if not actual:
+        return False
+    return major_of(requested) == major_of(actual)
+
+
+def container_health_summary(inspect_data):
+    if not inspect_data:
+        return "missing"
+    state = (inspect_data.get("State") or {})
+    if not state.get("Running"):
+        return state.get("Status", "stopped")
+    health = (state.get("Health") or {}).get("Status")
+    return health or "running"
+
+
+def mask_secret(value):
+    if not value:
+        return value
+    return "****"
+
+
+def mask_url(url):
+    # postgres://user:password@host/... -> postgres://user:****@host/...
+    return re.sub(r"(://[^:/@]+:)[^@]+(@)", r"\1****\2", url or "")
+
+
+def log_event(msg, **kv):
+    safe = {k: (mask_secret(v) if "pass" in k.lower() or "secret" in k.lower() else v) for k, v in kv.items()}
+    tail = " ".join(f"{k}={safe[k]}" for k in safe)
+    eprint(f"{msg} {tail}".rstrip())
+
+
+def reconcile(conn):
+    """Reconcile registry rows against docker truth. Returns list of row dicts."""
+    rows = [dict(r) for r in conn.execute("SELECT * FROM services")]
+    now = utcnow_iso()
+    for r in rows:
+        cid = r.get("container_id")
+        if not cid:
+            r["live_status"] = "unprovisioned"
+            continue
+        data = docker_inspect(cid)
+        if data is None:
+            # fallback: match by name (container may have been recreated)
+            data = docker_inspect(r.get("container_name") or "")
+        if data is None:
+            r["live_status"] = "missing"
+            conn.execute("UPDATE services SET status='missing', last_verified=? WHERE name=?", (now, r["name"]))
+        else:
+            # update stored id (handles recreation) + image drift flag
+            new_id = data.get("Id", "")[:12] or cid
+            img = data.get("Config", {}).get("Image", "")
+            nets = list((data.get("NetworkSettings", {}).get("Networks") or {}).keys())
+            health = container_health_summary(data)
+            conn.execute(
+                "UPDATE services SET container_id=?, image=?, network=?, status=?, last_verified=? WHERE name=?",
+                (new_id, img or r["image"], ",".join(nets), health, now, r["name"]),
+            )
+            r["container_id"] = new_id
+            if img:
+                r["image"] = img
+            r["network"] = ",".join(nets)
+            r["live_status"] = health
+    conn.commit()
+    return rows
+
+
+def find_unmanaged_candidates():
+    """Containers in docker ps not tracked in registry (externally owned)."""
+    conn = connect()
+    try:
+        known_ids = {r[0] for r in conn.execute("SELECT container_id FROM services")}
+        known_names = {r[0] for r in conn.execute("SELECT container_name FROM services")}
+    finally:
+        conn.close()
+    out = []
+    for c in docker_ps():
+        cid = (c.get("ID") or "")[:12]
+        name = c.get("Names") or c.get("Name") or ""
+        if cid not in known_ids and name not in known_names:
+            c["_devinfra"] = "unmanaged"
+            out.append(c)
+    return out
+
+
+# ---------------- commands ----------------
+
+def cmd_services_list(args):
+    if not docker_daemon_ok():
+        eprint("error: docker daemon unreachable; reuse detection skipped")
+        if args.json:
+            print(json.dumps({"services": [], "daemon": "unreachable"}))
+        return 2
+    conn = connect()
+    try:
+        rows = reconcile(conn)
+        result = []
+        for r in rows:
+            dependents = conn.execute(
+                "SELECT project, db_name FROM dependencies WHERE service=?", (r["name"],)
+            ).fetchall()
+            result.append(
+                {
+                    "name": r["name"],
+                    "container_id": r.get("container_id"),
+                    "container_name": r.get("container_name"),
+                    "image": r.get("image"),
+                    "version": r.get("version"),
+                    "status": r.get("live_status", r.get("status")),
+                    "network": r.get("network"),
+                    "scope": r.get("scope"),
+                    "unmanaged": bool(r.get("unmanaged")),
+                    "projects": [dict(d) for d in dependents],
+                }
+            )
+        if args.json:
+            print(json.dumps({"services": result}, indent=2))
+        else:
+            if not result:
+                print("No registered shared services. (docker daemon is reachable; nothing provisioned yet)")
+            for s in result:
+                projs = ",".join(d["project"] for d in s["projects"]) or "-"
+                print(f"{s['name']}\t{s['image']}\t{s['status']}\tprojects={projs}")
+            unmanaged = find_unmanaged_candidates()
+            if unmanaged:
+                print("\nUnmanaged containers (externally owned, reuse only with authorization):")
+                for c in unmanaged:
+                    print(f"  {c.get('Names')}\t{c.get('Image')}\t{c.get('Status')}")
+    finally:
+        conn.close()
+    return 0
+
+
+def cmd_services_inspect(args):
+    conn = connect()
+    try:
+        r = conn.execute("SELECT * FROM services WHERE name=?", (args.name,)).fetchone()
+        if r is None:
+            eprint(f"error: unknown service '{args.name}'; known: {[s for s in CATALOG]}")
+            return 1
+        r = dict(r)
+        data = docker_inspect(r.get("container_id") or "") or docker_inspect(r.get("container_name") or "")
+        health = container_health_summary(data) if data else "missing"
+        dependents = [dict(d) for d in conn.execute("SELECT * FROM dependencies WHERE service=?", (args.name,))]
+        info = {
+            "name": r["name"],
+            "container_id": r.get("container_id"),
+            "container_name": r.get("container_name"),
+            "image": r.get("image"),
+            "version": r.get("version"),
+            "digest": r.get("digest"),
+            "scope": r.get("scope"),
+            "network": r.get("network"),
+            "ports": r.get("ports"),
+            "volumes": r.get("volumes"),
+            "health": health,
+            "unmanaged": bool(r.get("unmanaged")),
+            "last_verified": r.get("last_verified"),
+            "dependents": dependents,
+        }
+        if data:
+            info["networks_live"] = list((data.get("NetworkSettings", {}).get("Networks") or {}).keys())
+            info["mounts"] = [m.get("Name") or m.get("Source") for m in (data.get("Mounts") or [])]
+        # never print secrets: registry holds none; inspect env redaction
+        print(json.dumps(info, indent=2))
+    finally:
+        conn.close()
+    return 0
+
+
+def cmd_services_users(args):
+    conn = connect()
+    try:
+        rows = [dict(d) for d in conn.execute("SELECT project, db_name, db_user, namespace, created_at FROM dependencies WHERE service=?", (args.name,))]
+        if args.json:
+            print(json.dumps({"service": args.name, "users": rows}, indent=2))
+        else:
+            if not rows:
+                print(f"No registered dependents for {args.name}.")
+            for d in rows:
+                print(f"{d['project']}\tdb={d['db_name']}\tuser={d['db_user']}\tns={d['namespace']}")
+    finally:
+        conn.close()
+    return 0
+
+
+def cmd_ensure(args):
+    service = args.name
+    if service not in CATALOG:
+        eprint(f"error: unknown service '{service}'. Supported: {sorted(CATALOG)}")
+        return 1
+    if args.scope not in VALID_SCOPES:
+        eprint(f"error: invalid scope '{args.scope}'. Valid: {VALID_SCOPES}")
+        return 1
+    version = args.version or CATALOG[service]["default_version"]
+    if not docker_daemon_ok():
+        eprint("error: docker daemon unreachable; cannot provision")
+        return 2
+    with locked():
+        conn = connect()
+        try:
+            rows = reconcile(conn)
+            existing = next((r for r in rows if r["name"] == service), None)
+            # For project-scoped/ephemeral/dedicated, never reuse the shared row:
+            shareable = args.scope in ("shared", "shared-if-compatible")
+            if existing and shareable and versions_compatible(version, existing.get("version")) and \
+                    existing.get("live_status") in ("healthy", "running"):
+                log_event("reusing shared service", service=service,
+                          container_id=(existing.get("container_id") or "")[:12],
+                          image=existing.get("image"))
+                print(f"reused {service} ({existing.get('container_id','')[:12]} {existing.get('image')})")
+                return 0
+            if existing and shareable and existing.get("live_status") not in ("healthy", "running"):
+                eprint(f"warning: existing {service} is '{existing.get('live_status')}'; not reusing. "
+                       "Recover it (owner) or provision dedicated with --scope dedicated.")
+                if args.scope in ("shared", "shared-if-compatible"):
+                    return 1
+            if existing and not versions_compatible(version, existing.get("version")):
+                eprint(f"note: existing {service} version {existing.get('version')} incompatible "
+                       f"with requested {version}; will not upgrade shared service.")
+                if shareable and args.scope == "shared-if-compatible":
+                    # fall through to dedicated provisioning under a distinct name
+                    return provision_dedicated(conn, service, version, args, suffix=f"-v{major_of(version)}")
+            if existing and not shareable:
+                return provision_dedicated(conn, service, version, args, suffix=f"-{os.getpid() % 100000}")
+            if existing is None:
+                pass  # fresh provision below
+            else:
+                print(f"reused {service} ({existing.get('container_id','')[:12]})")
+                return 0
+            # Fresh provision of the canonical service
+            return provision_canonical(conn, service, version, args)
+        finally:
+            conn.close()
+
+
+def provision_canonical(conn, service, version, args):
+    image = args.image or image_for(service, version)
+    cname = service if args.scope != "ephemeral" else f"{service}-ephemeral"
+    # image present locally?
+    imgs = docker_images()
+    have_image = any((i.get("Repository") or "") + ":" + (i.get("Tag") or "") == image for i in imgs)
+    if not have_image:
+        if args.dry_run:
+            print(f"would pull image {image}")
+        else:
+            log_event("pulling image (not present locally)", image=image)
+            p = run_docker(["pull", image])
+            if p.returncode != 0:
+                eprint(f"error: docker pull {image} failed: {(p.stderr or '')[:500]}")
+                return 1
+    if args.dry_run:
+        print(f"would create container {cname} from {image} on network {SHARED_NETWORK}")
+        return 0
+    if not ensure_shared_network():
+        eprint(f"error: could not create network {SHARED_NETWORK}")
+        return 1
+    spec = CATALOG[service]
+    port = args.port or spec["port"]
+    # build carefully (avoid None entries)
+    run_args = ["run", "-d", "--name", cname, "--network", SHARED_NETWORK, "--restart", "unless-stopped"]
+    if args.publish:
+        run_args += ["-p", f"127.0.0.1:{port}:{spec['port']}"]
+    if "data_path" in spec:
+        run_args += ["-v", f"{cname}-data:{spec['data_path']}"]
+    if service == "postgres":
+        pw = os.environ.get("POSTGRES_PASSWORD") or secrets.token_urlsafe(24)
+        run_args += ["-e", f"POSTGRES_PASSWORD={pw}"]
+    run_args.append(image)
+    p = run_docker(run_args)
+    if p.returncode != 0:
+        eprint(f"error: docker run failed: {(p.stderr or '')[:500]}")
+        return 1
+    cid = (p.stdout or "").strip()[:12]
+    now = utcnow_iso()
+    conn.execute(
+        "INSERT OR REPLACE INTO services(name,container_id,container_name,image,version,scope,network,status,last_verified,unmanaged)"
+        " VALUES(?,?,?,?,?,?,?,?,?,0)",
+        (service, cid, cname, image, major_of(version), args.scope, SHARED_NETWORK, "running", now),
+    )
+    conn.commit()
+    log_event("provisioned service", service=service, container_id=cid, image=image)
+    print(f"created {service} ({cid} {image})")
+    return 0
+
+
+def provision_dedicated(conn, service, version, args, suffix):
+    image = args.image or image_for(service, version)
+    cname = f"{service}{suffix}"
+    if args.dry_run:
+        print(f"would create dedicated container {cname} from {image}")
+        return 0
+    if not ensure_shared_network():
+        eprint(f"error: could not create network {SHARED_NETWORK}")
+        return 1
+    spec = CATALOG[service]
+    run_args = ["run", "-d", "--name", cname, "--network", SHARED_NETWORK, "--restart", "unless-stopped",
+                "-v", f"{cname}-data:{spec.get('data_path', '/data')}", image]
+    p = run_docker(run_args)
+    if p.returncode != 0:
+        eprint(f"error: docker run failed: {(p.stderr or '')[:500]}")
+        return 1
+    cid = (p.stdout or "").strip()[:12]
+    now = utcnow_iso()
+    # track dedicated instance under its container name so refcounting works
+    conn.execute(
+        "INSERT OR REPLACE INTO services(name,container_id,container_name,image,version,scope,network,status,last_verified,unmanaged)"
+        " VALUES(?,?,?,?,?,?,?,?,?,0)",
+        (cname, cid, cname, image, major_of(version), args.scope, SHARED_NETWORK, "running", now),
+    )
+    conn.commit()
+    log_event("provisioned dedicated service", service=cname, container_id=cid, image=image)
+    print(f"created dedicated {cname} ({cid} {image})")
+    return 0
+
+
+def cmd_database_create(args):
+    service = args.service
+    if service not in CATALOG:
+        eprint(f"error: unknown service '{service}'")
+        return 1
+    with locked():
+        conn = connect()
+        try:
+            row = conn.execute("SELECT * FROM services WHERE name=?", (service,)).fetchone()
+            if row is None:
+                eprint(f"error: service '{service}' not provisioned; run `ensure {service}` first")
+                return 1
+            row = dict(row)
+            cname = row.get("container_name") or service
+            existing = conn.execute(
+                "SELECT * FROM dependencies WHERE service=? AND project=? AND db_name=?",
+                (service, args.project, args.name),
+            ).fetchone()
+            if existing:
+                print(f"exists {service}/{args.name} for project {args.project} (idempotent, nothing created)")
+                return 0
+            if service == "postgres":
+                rc = postgres_create_db(cname, args.name, args.owner, args.dry_run)
+                if rc != 0:
+                    return rc
+                user = args.owner or f"{args.project}_user"
+            else:
+                user = args.owner or ""
+                if args.dry_run:
+                    print(f"would record namespace {args.name} on {service} for project {args.project}")
+                    return 0
+            if args.dry_run:
+                print(f"would register {service}/{args.name} for project {args.project}")
+                return 0
+            now = utcnow_iso()
+            conn.execute(
+                "INSERT INTO dependencies(service,project,db_name,db_user,namespace,created_at)"
+                " VALUES(?,?,?,?,?,?)",
+                (service, args.project, args.name, user, args.namespace or args.name, now),
+            )
+            conn.commit()
+            log_event("registered dependency", service=service, project=args.project, db=args.name, user=user)
+            print(f"registered {service}/{args.name} for project {args.project}")
+            return 0
+        finally:
+            conn.close()
+
+
+def postgres_create_db(cname, db, owner, dry_run):
+    user = owner or None
+    # 1. database exists?
+    if dry_run:
+        print(f"would create database {db} (+ user {user or '<project>_user'}) in container {cname}")
+        return 0
+    chk = run_docker(["exec", cname, "psql", "-U", "postgres", "-tAc",
+                      f"SELECT 1 FROM pg_database WHERE datname='{db}'"])
+    if chk.returncode != 0:
+        eprint(f"error: could not reach postgres in {cname}: {(chk.stderr or '')[:300]}")
+        return 1
+    if "1" not in (chk.stdout or ""):
+        mk = run_docker(["exec", cname, "psql", "-U", "postgres", "-c", f'CREATE DATABASE "{db}"'])
+        if mk.returncode != 0:
+            eprint(f"error: CREATE DATABASE failed: {(mk.stderr or '')[:300]}")
+            return 1
+    if user:
+        # create role idempotently (DO block), no password printed/stored by us
+        pw = secrets.token_urlsafe(24)
+        sql = (f"DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='{user}') THEN "
+               f"CREATE ROLE \"{user}\" LOGIN PASSWORD '{pw}'; END IF; END $$;")
+        p = run_docker(["exec", cname, "psql", "-U", "postgres", "-c", sql])
+        if p.returncode != 0:
+            eprint(f"warning: CREATE ROLE may have failed: {(p.stderr or '')[:300]}")
+        else:
+            run_docker(["exec", cname, "psql", "-U", "postgres", "-c",
+                        f'GRANT ALL PRIVILEGES ON DATABASE "{db}" TO "{user}"'])
+            # NOTE: password shown ONCE below; caller must save it to project .env now.
+            print(f"user {user} ready; password (store in project .env NOW, it is not saved anywhere): {pw}")
+    return 0
+
+
+def cmd_connection(args):
+    conn = connect()
+    try:
+        row = conn.execute("SELECT * FROM services WHERE name=?", (args.service,)).fetchone()
+        if row is None:
+            eprint(f"error: unknown service '{args.service}'")
+            return 1
+        row = dict(row)
+        dep = conn.execute("SELECT * FROM dependencies WHERE service=? AND project=?",
+                           (args.service, args.project)).fetchone()
+        dep = dict(dep) if dep else {}
+        spec = CATALOG.get(args.service, {})
+        host = args.service  # DNS name on dev-services
+        port = spec.get("port", "")
+        out = {
+            "service": args.service,
+            "host": host,
+            "port": port,
+            "network": SHARED_NETWORK,
+            "database": dep.get("db_name", ""),
+            "user": dep.get("db_user", ""),
+            "password": "**** (see project .env; never stored)",
+        }
+        if args.service == "postgres":
+            out["url_template"] = f"postgres://${{{args.project.upper()}_DB_USER}}:****@{host}:{port}/${{{args.project.upper()}_DB_NAME}}"
+            out["example_env"] = (f"DATABASE_URL=postgres://{dep.get('db_user','USER')}:****@{host}:{port}/{dep.get('db_name','DB')}")
+        elif args.service == "redis":
+            out["url_template"] = f"redis://{host}:{port}/0  # prefix keys '{args.project}:'"
+        if args.json:
+            print(json.dumps(out, indent=2))
+        else:
+            for k, v in out.items():
+                print(f"{k}={v}")
+    finally:
+        conn.close()
+    return 0
+
+
+def cmd_cleanup(args):
+    with locked():
+        conn = connect()
+        try:
+            deps = [dict(d) for d in conn.execute("SELECT * FROM dependencies WHERE project=?", (args.project,))]
+            if not deps:
+                print(f"nothing registered for project {args.project}")
+                return 0
+            if args.dry_run:
+                print(f"would unregister {len(deps)} dependenc(ies) for project {args.project}:")
+                for d in deps:
+                    extra = f" + DROP {'database' if d['service']=='postgres' else 'namespace'} {d['db_name']}" if args.include_databases else ""
+                    print(f"  - {d['service']}/{d['db_name']}{extra}")
+                # ephemeral containers owned solely by this project:
+                print("(shared containers/volumes with other dependents are never removed)")
+                return 0
+            if not args.yes:
+                eprint("refusing without --yes (or use --dry-run to preview)")
+                return 1
+            for d in deps:
+                if args.include_databases and d["service"] == "postgres":
+                    row = conn.execute("SELECT container_name FROM services WHERE name=?", (d["service"],)).fetchone()
+                    cname = row["container_name"] if row else d["service"]
+                    run_docker(["exec", cname, "psql", "-U", "postgres", "-c", f'DROP DATABASE IF EXISTS "{d["db_name"]}"'])
+                conn.execute("DELETE FROM dependencies WHERE id=?", (d["id"],))
+            # remove ephemeral containers with zero remaining dependents
+            removed = []
+            for r in conn.execute("SELECT * FROM services WHERE scope='ephemeral'"):
+                r = dict(r)
+                left = conn.execute("SELECT COUNT(*) c FROM dependencies WHERE service=?", (r["name"],)).fetchone()["c"]
+                # also match dedicated names by prefix project
+                if left == 0 and (args.project in (r["name"] or "")):
+                    if not r.get("unmanaged"):
+                        run_docker(["rm", "-f", r["container_id"] or r["container_name"] or ""])
+                        removed.append(r["name"])
+                        conn.execute("DELETE FROM services WHERE name=?", (r["name"],))
+            conn.commit()
+            print(f"unregistered project {args.project} ({len(deps)} dependenc(ies)); removed ephemeral: {removed or 'none'}")
+            print("shared services and volumes left intact.")
+            return 0
+        finally:
+            conn.close()
+
+
+def cmd_compose_generate(args):
+    services = [s.strip() for s in (args.services or "postgres,redis").split(",") if s.strip()]
+    for s in services:
+        if s not in CATALOG:
+            eprint(f"error: unknown service '{s}'")
+            return 1
+    conn = connect()
+    try:
+        rows = {r["name"]: dict(r) for r in conn.execute("SELECT * FROM services")}
+    finally:
+        conn.close()
+    if args.standalone:
+        body = compose_standalone(args.project, services)
+    else:
+        missing = [s for s in services if s not in rows]
+        body = compose_shared(args.project, [s for s in services if s in rows])
+        if missing and not args.allow_missing:
+            eprint(f"warning: {missing} not provisioned; emitting shared Compose without them "
+                   "(run `ensure` first, or use --standalone for self-contained output)")
+    if args.output and args.output != "-":
+        with open(args.output, "w") as fh:
+            fh.write(body)
+        print(f"wrote {args.output}")
+    else:
+        print(body, end="")
+    return 0
+
+
+def compose_shared(project, available):
+    lines = [f"# {project}: shared-infrastructure Compose (generated by devinfra).",
+             "# Reused services are NOT declared here; the app joins them over dev-services.",
+             "# Set the env vars below in your project .env (passwords never stored in this file).",
+             ""]
+    env = []
+    if "postgres" in available:
+        env.append(f"      DATABASE_URL=${{DATABASE_URL}}")
+    if "redis" in available:
+        env.append(f"      REDIS_URL=${{REDIS_URL}}")
+    if "mongodb" in available:
+        env.append(f"      MONGODB_URI=${{MONGODB_URI}}")
+    lines += ["services:", "  app:", "    build: .",
+              "    environment:"] + (env or ["      # no shared services available; run devinfra ensure first"]) + \
+             ["    networks:", "      - shared-dev", "",
+              "networks:", "  shared-dev:", "    external: true", f"    name: {SHARED_NETWORK}", ""]
+    return "\n".join(lines)
+
+
+def compose_standalone(project, services):
+    lines = [f"# {project}: standalone Compose (generated by devinfra --standalone).",
+             "# Self-contained fallback: project-scoped containers. Prefer shared mode when available.", "",
+             "services:", "  app:", "    build: .", "    environment:"]
+    if "postgres" in services:
+        lines.append("      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@"
+                     f"{project}-postgres:5432/${{POSTGRES_DB}}")
+    if "redis" in services:
+        lines.append(f"      REDIS_URL: redis://{project}-redis:6379/0")
+    lines.append("    depends_on:")
+    if "postgres" in services:
+        lines.append(f"      - {project}-postgres")
+    if "redis" in services:
+        lines.append(f"      - {project}-redis")
+    if "postgres" in services:
+        lines += ["", f"  {project}-postgres:", "    image: postgres:17-alpine",
+                  "    environment:",
+                  "      POSTGRES_DB: ${POSTGRES_DB:-%s_db}" % project,
+                  "      POSTGRES_USER: ${POSTGRES_USER:-%s_user}" % project,
+                  "      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}",
+                  "    volumes:", f"      - {project}-pgdata:/var/lib/postgresql/data"]
+    if "redis" in services:
+        lines += ["", f"  {project}-redis:", "    image: redis:7-alpine",
+                  "    volumes:", f"      - {project}-redisdata:/data"]
+    lines += ["", "volumes:"]
+    if "postgres" in services:
+        lines.append(f"  {project}-pgdata:")
+    if "redis" in services:
+        lines.append(f"  {project}-redisdata:")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def build_parser():
+    ap = argparse.ArgumentParser(prog="devinfra", description="Shared local Docker infrastructure manager")
+    ap.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    s = sub.add_parser("services", help="list/inspect shared services")
+    ssub = s.add_subparsers(dest="sub", required=True)
+    l = ssub.add_parser("list", help="list registered services reconciled with docker")
+    l.add_argument("--json", action="store_true")
+    l.set_defaults(fn=cmd_services_list)
+    i = ssub.add_parser("inspect", help="inspect one service")
+    i.add_argument("name")
+    i.set_defaults(fn=cmd_services_inspect)
+    u = ssub.add_parser("users", help="list projects using a service")
+    u.add_argument("name")
+    u.add_argument("--json", action="store_true")
+    u.set_defaults(fn=cmd_services_users)
+
+    e = sub.add_parser("ensure", help="reuse or provision a shared service (idempotent)")
+    e.add_argument("name")
+    e.add_argument("--version", dest="version", default=None, help="major version, e.g. 17")
+    e.add_argument("--scope", default=None, help=f"one of {VALID_SCOPES}")
+    e.add_argument("--image", default=None)
+    e.add_argument("--port", type=int, default=None)
+    e.add_argument("--publish", action="store_true", help="publish host port on 127.0.0.1 (default: network-only)")
+    e.add_argument("--dry-run", action="store_true")
+    e.set_defaults(fn=cmd_ensure)
+
+    d = sub.add_parser("database", help="project data namespaces")
+    dsub = d.add_subparsers(dest="sub", required=True)
+    dc = dsub.add_parser("create", help="create/register project database (idempotent)")
+    dc.add_argument("service")
+    dc.add_argument("--name", required=True)
+    dc.add_argument("--project", required=True)
+    dc.add_argument("--owner", default=None)
+    dc.add_argument("--namespace", default=None)
+    dc.add_argument("--dry-run", action="store_true")
+    dc.set_defaults(fn=cmd_database_create)
+
+    c = sub.add_parser("connection", help="show connection details (secrets redacted)")
+    c.add_argument("service")
+    c.add_argument("--project", required=True)
+    c.add_argument("--json", action="store_true")
+    c.set_defaults(fn=cmd_connection)
+
+    cl = sub.add_parser("cleanup", help="unregister a project safely")
+    cl.add_argument("--project", required=True)
+    cl.add_argument("--dry-run", action="store_true")
+    cl.add_argument("--include-databases", action="store_true")
+    cl.add_argument("--yes", action="store_true")
+    cl.set_defaults(fn=cmd_cleanup)
+
+    g = sub.add_parser("compose", help="generate Compose files")
+    gsub = g.add_subparsers(dest="sub", required=True)
+    gg = gsub.add_parser("generate", help="generate compose yaml")
+    gg.add_argument("--project", required=True)
+    gg.add_argument("--services", default="postgres,redis")
+    gg.add_argument("--standalone", action="store_true")
+    gg.add_argument("--allow-missing", action="store_true")
+    gg.add_argument("--output", default="-")
+    gg.set_defaults(fn=cmd_compose_generate)
+    return ap
+
+
+def main(argv=None):
+    ap = build_parser()
+    args = ap.parse_args(argv)
+    # default scope from catalog when omitted
+    if getattr(args, "cmd", None) == "ensure" and not getattr(args, "scope", None):
+        args.scope = CATALOG.get(args.name, {}).get("default_scope", "shared-if-compatible")
+    return args.fn(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

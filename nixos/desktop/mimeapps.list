@@ -1,0 +1,33 @@
+[Added Associations]
+
+[Default Applications]
+application/gzip=org.gnome.FileRoller.desktop
+application/pdf=org.pwmt.zathura.desktop
+application/x-7z-compressed=org.gnome.FileRoller.desktop
+application/x-bzip-compressed-tar=org.gnome.FileRoller.desktop
+application/x-compressed-tar=org.gnome.FileRoller.desktop
+application/x-keepass2=org.keepassxc.KeePassXC.desktop
+application/x-tar=org.gnome.FileRoller.desktop
+application/x-xz-compressed-tar=org.gnome.FileRoller.desktop
+application/zip=org.gnome.FileRoller.desktop
+audio/flac=mpv.desktop
+audio/mpeg=mpv.desktop
+audio/ogg=mpv.desktop
+audio/x-wav=mpv.desktop
+image/avif=org.gnome.Loupe.desktop
+image/bmp=org.gnome.Loupe.desktop
+image/gif=org.gnome.Loupe.desktop
+image/jpeg=org.gnome.Loupe.desktop
+image/png=org.gnome.Loupe.desktop
+image/svg+xml=org.gnome.Loupe.desktop
+image/webp=org.gnome.Loupe.desktop
+text/html=google-chrome.desktop
+video/mp4=mpv.desktop
+video/quicktime=mpv.desktop
+video/webm=mpv.desktop
+video/x-matroska=mpv.desktop
+video/x-msvideo=mpv.desktop
+x-scheme-handler/http=google-chrome.desktop
+x-scheme-handler/https=google-chrome.desktop
+
+[Removed Associations]
